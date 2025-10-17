@@ -114,14 +114,8 @@ export function SessionProvider(props: { children: React.ReactNode }) {
    */
   const [isLoading, setIsLoading] = useState(true);
 
-  // ============================================================================
-  // Effects
-  // ============================================================================
-
-  /**
-   * Sets up Firebase authentication state listener
-   * Automatically updates user state on auth changes
-   */
+  
+ 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -131,10 +125,6 @@ export function SessionProvider(props: { children: React.ReactNode }) {
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
-
-  // ============================================================================
-  // Handlers
-  // ============================================================================
 
   /**
    * Handles user sign-in process
@@ -173,10 +163,7 @@ export function SessionProvider(props: { children: React.ReactNode }) {
     }
   };
 
-  /**
-   * Handles user sign-out process
-   * Clears local user state after successful logout
-   */
+  
   const handleSignOut = async () => {
     try {
       await logout();
@@ -186,9 +173,7 @@ export function SessionProvider(props: { children: React.ReactNode }) {
     }
   };
 
-  // ============================================================================
-  // Render
-  // ============================================================================
+
 
   return (
     <AuthContext.Provider
