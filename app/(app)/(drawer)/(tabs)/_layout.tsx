@@ -21,6 +21,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="hunts"
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: true,
@@ -39,6 +40,18 @@ export default function TabLayout() {
         ),
       }}
     >
+      <Tabs.Screen
+        name="hunts"
+        options={{
+          title: "My Hunts",
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? "search" : "search-outline"}
+              color={color}
+            />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{

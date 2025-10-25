@@ -1,0 +1,39 @@
+// Firestore Security Rules for Scavenger Hunt App
+// These rules should be applied in your Firebase Console under Firestore Database > Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Hunt documents - users can only access their own hunts
+    match /hunts/{huntId} {
+      allow read, write, delete: if request.auth != null 
+        && request.auth.uid == resource.data.userId;
+      
+      // Allow creation if user is authenticated and userId matches auth.uid
+      allow create: if request.auth != null 
+        && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Deny all other document access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/*
+Security Rules Explanation:
+
+1. Users must be authenticated (request.auth != null)
+2. Users can only access hunts where userId matches their authentication UID
+3. Users can create new hunts only if they set userId to their own UID
+4. All other documents are denied access by default
+
+To apply these rules:
+1. Go to Firebase Console
+2. Select your project
+3. Navigate to Firestore Database
+4. Click on "Rules" tab
+5. Replace existing rules with the above content
+6. Click "Publish"
+*/

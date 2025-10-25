@@ -1,8 +1,20 @@
 import { SessionProvider } from "@/context";
 import { Slot } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect, useState } from 'react';
+import CustomSplashScreen from '@/components/SplashScreen';
 // Import your global CSS file
 import "../global.css";
+
+// Prevent the splash screen from auto-hiding before asset loading is complete
+SplashScreen.setOptions({
+  duration: 1000,
+  fade: true,
+});
+
+SplashScreen.preventAutoHideAsync();
 
 /**
  * Root Layout is the highest-level layout in the app, wrapping all other layouts and screens.
@@ -14,22 +26,25 @@ import "../global.css";
  * This layout affects every screen in the app, including both authenticated
  * and unauthenticated routes.
  */
-export default function Root() {
+export default function RootLayout() {
   // Set up the auth context and render our layout inside of it.
+  const [loaded] = useFonts({
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  });
+  
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hide();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
+  
   return (
     <SessionProvider>
-      {/* 
-        GestureHandlerRootView is required for:
-        - Drawer navigation gestures
-        - Swipe gestures
-        - Other gesture-based interactions
-        Must wrap the entire app to function properly
-      */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-        {/* 
-          Slot renders child routes dynamically
-          This includes both (app) and (auth) group routes
-        */}
         <Slot />
       </GestureHandlerRootView>
     </SessionProvider>

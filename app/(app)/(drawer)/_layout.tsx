@@ -1,5 +1,4 @@
 import React from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Drawer } from "expo-router/drawer";
 import CustomDrawerContent from "@/components/CustomDrawerContent";
 
@@ -9,10 +8,9 @@ import CustomDrawerContent from "@/components/CustomDrawerContent";
  */
 const DrawerLayout = () => {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Drawer
-        drawerContent={(props) => <CustomDrawerContent {...props} />}
-      >
+    <Drawer
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+    >
         {/* 
           (tabs) route contains the TabLayout with bottom navigation
           - Nested inside the drawer as the main content
@@ -38,7 +36,6 @@ const DrawerLayout = () => {
           }}
         />
       </Drawer>
-    </GestureHandlerRootView>
   );
 };
 
