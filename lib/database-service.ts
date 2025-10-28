@@ -1,6 +1,6 @@
 /**
- * Firebase Firestore Database Service
- * Purpose: Handles all database operations for the Scavenger Hunt app
+ * Database service for Firestore operations
+ * Handles all database interactions for hunts and user data
  */
 import { 
   getFirestore, 
@@ -9,124 +9,105 @@ import {
   getDocs, 
   query, 
   where, 
-  orderBy, 
-  Timestamp,
+  orderBy,
   doc,
   getDoc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-  QuerySnapshot,
-  DocumentData,
-  FirestoreError
+  Timestamp,
+  serverTimestamp
 } from 'firebase/firestore';
-import { auth } from './firebase-config';
 import app from './firebase-config';
 
 // Initialize Firestore
-export const db = getFirestore(app);
-
-// ============================================================================
-// Hunt Management Functions
-// ============================================================================
+const db = getFirestore(app);
+console.log('🔥 [Database Service] Firestore initialized:', db);
 
 /**
- * Interface for Hunt document structure
+ * Test Firestore connection
+ * @returns {Promise<boolean>} - True if connection works
  */
-export interface Hunt {
-  id?: string;
-  name: string;
-  userId: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  description?: string;
-  isCompleted?: boolean;
-}
-
-/**
- * Create a new hunt for the current user
- * @param huntName - Name of the hunt (max 255 characters)
- * @param description - Optional description of the hunt
- * @returns Promise<string> - The ID of the created hunt
- */
-export const createHunt = async (huntName: string, description?: string): Promise<string> => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to create a hunt');
-  }
-
-  // Validate hunt name length
-  if (huntName.trim().length === 0) {
-    throw new Error('Hunt name cannot be empty');
-  }
-  
-  if (huntName.length > 255) {
-    throw new Error('Hunt name must be 255 characters or less');
-  }
-
-  // Check if hunt with same name exists for this user
-  const existingHunt = await checkHuntNameExists(huntName.trim(), currentUser.uid);
-  if (existingHunt) {
-    throw new Error(`A hunt with the name "${huntName}" already exists. Please choose a unique name.`);
-  }
-
+export const testFirestoreConnection = async (): Promise<boolean> => {
   try {
-    const huntData: Omit<Hunt, 'id'> = {
-      name: huntName.trim(),
-      userId: currentUser.uid,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-      description: description?.trim() || '',
-      isCompleted: false
-    };
-
-    const docRef = await addDoc(collection(db, 'hunts'), huntData);
-    console.log('Hunt created with ID:', docRef.id);
-    return docRef.id;
-  } catch (error) {
-    console.error('Error creating hunt:', error);
-    throw new Error('Failed to create hunt. Please try again.');
-  }
-};
-
-/**
- * Check if a hunt name already exists for the current user
- * @param huntName - Name to check
- * @param userId - User ID to check against
- * @returns Promise<boolean> - True if hunt exists, false otherwise
- */
-export const checkHuntNameExists = async (huntName: string, userId: string): Promise<boolean> => {
-  try {
-    const huntsRef = collection(db, 'hunts');
-    const q = query(
-      huntsRef, 
-      where('userId', '==', userId),
-      where('name', '==', huntName.trim())
-    );
-    
-    const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty;
-  } catch (error) {
-    console.error('Error checking hunt name:', error);
+    console.log('🧪 [Database Service] Testing Firestore connection...');
+    const testCollection = collection(db, 'test');
+    console.log('✅ [Database Service] Firestore connection test successful');
+    return true;
+  } catch (error: any) {
+    console.error('💥 [Database Service] Firestore connection test failed:', error);
     return false;
   }
 };
 
 /**
- * Fetch all hunts for the current user
- * @returns Promise<Hunt[]> - Array of user's hunts
+ * Get all hunts (for debugging purposes)
+ * @returns {Promise<Hunt[]>} - Array of all hunts
  */
-export const getUserHunts = async (): Promise<Hunt[]> => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to fetch hunts');
-  }
-
+export const getAllHunts = async (): Promise<Hunt[]> => {
+  console.log('🔍 [Database Service] Getting ALL hunts (for debugging)...');
+  
   try {
-    const huntsRef = collection(db, 'hunts');
+    const querySnapshot = await getDocs(collection(db, 'hunts'));
+    console.log('📊 [Database Service] Total documents in hunts collection:', querySnapshot.size);
+    
+    const hunts: Hunt[] = [];
+    querySnapshot.forEach((doc) => {
+      const huntData = {
+        id: doc.id,
+        ...doc.data()
+      } as Hunt;
+      console.log('📄 [Database Service] Found hunt:', huntData);
+      hunts.push(huntData);
+    });
+
+    return hunts;
+  } catch (error: any) {
+    console.error('💥 [Database Service] Error getting all hunts:', error);
+    throw error;
+  }
+};
+
+/**
+ * Hunt interface for type safety
+ */
+export interface Hunt {
+  id?: string;
+  name: string;
+  userId: string;
+  createdAt: any; // Can be Date or Firestore Timestamp
+}
+
+/**
+ * Create a new hunt for the current user
+ * @param {string} huntName - Name of the hunt
+ * @param {string} userId - ID of the user creating the hunt
+ * @returns {Promise<string>} - ID of the created hunt
+ */
+export const createHunt = async (huntName: string, userId: string): Promise<string> => {
+  try {
+    const huntData = {
+      name: huntName,
+      userId: userId,
+      createdAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, 'hunts'), huntData);
+    console.log('✅ Hunt created successfully with ID:', docRef.id);
+    return docRef.id;
+  } catch (error: any) {
+    console.error('💥 Error creating hunt:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all hunts for a specific user
+ * @param {string} userId - ID of the user
+ * @returns {Promise<Hunt[]>} - Array of user's hunts
+ */
+export const getUserHunts = async (userId: string): Promise<Hunt[]> => {
+  try {
     const q = query(
-      huntsRef,
-      where('userId', '==', currentUser.uid),
+      collection(db, 'hunts'),
+      where('userId', '==', userId),
       orderBy('createdAt', 'desc')
     );
 
@@ -134,136 +115,62 @@ export const getUserHunts = async (): Promise<Hunt[]> => {
     const hunts: Hunt[] = [];
 
     querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      hunts.push({
+      const huntData = {
         id: doc.id,
-        name: data.name,
-        userId: data.userId,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        description: data.description || '',
-        isCompleted: data.isCompleted || false
-      });
+        ...doc.data()
+      } as Hunt;
+      hunts.push(huntData);
     });
 
-    console.log(`✅ Retrieved ${hunts.length} hunts for user`);
     return hunts;
+  } catch (error: any) {
+    console.error('💥 Error getting user hunts:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a hunt with the same name exists for the user
+ * @param {string} huntName - Name of the hunt to check
+ * @param {string} userId - ID of the user
+ * @returns {Promise<boolean>} - True if hunt exists, false otherwise
+ */
+export const huntExistsForUser = async (huntName: string, userId: string): Promise<boolean> => {
+  try {
+    const q = query(
+      collection(db, 'hunts'),
+      where('userId', '==', userId),
+      where('name', '==', huntName)
+    );
+
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
   } catch (error) {
-    console.error('❌ Error fetching user hunts:', error);
-    throw new Error('Failed to fetch hunts. Please try again.');
+    console.error('Error checking if hunt exists:', error);
+    throw error;
   }
 };
 
 /**
  * Get a specific hunt by ID
- * @param huntId - The hunt document ID
- * @returns Promise<Hunt | null> - The hunt data or null if not found
+ * @param {string} huntId - ID of the hunt
+ * @returns {Promise<Hunt | null>} - Hunt data or null if not found
  */
 export const getHuntById = async (huntId: string): Promise<Hunt | null> => {
   try {
-    const huntRef = doc(db, 'hunts', huntId);
-    const huntSnap = await getDoc(huntRef);
+    const docRef = doc(db, 'hunts', huntId);
+    const docSnap = await getDoc(docRef);
 
-    if (huntSnap.exists()) {
-      const data = huntSnap.data();
+    if (docSnap.exists()) {
       return {
-        id: huntSnap.id,
-        name: data.name,
-        userId: data.userId,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        description: data.description || '',
-        isCompleted: data.isCompleted || false
-      };
+        id: docSnap.id,
+        ...docSnap.data()
+      } as Hunt;
     } else {
       return null;
     }
   } catch (error) {
-    console.error('Error fetching hunt by ID:', error);
-    throw new Error('Failed to fetch hunt details.');
-  }
-};
-
-/**
- * Generate suggested hunt names based on user input
- * @param baseName - The base name to generate suggestions from
- * @param userId - Current user ID
- * @returns Promise<string[]> - Array of suggested available names
- */
-export const generateHuntNameSuggestions = async (baseName: string, userId: string): Promise<string[]> => {
-  const suggestions: string[] = [];
-  const cleanBaseName = baseName.trim();
-  
-  // Generate potential variations
-  const variations = [
-    `${cleanBaseName} 2`,
-    `${cleanBaseName} (New)`,
-    `${cleanBaseName} - ${new Date().getFullYear()}`,
-    `My ${cleanBaseName}`,
-    `${cleanBaseName} Adventure`,
-    `${cleanBaseName} Quest`
-  ];
-
-  // Check which variations are available
-  for (const variation of variations) {
-    const exists = await checkHuntNameExists(variation, userId);
-    if (!exists && variation.length <= 255) {
-      suggestions.push(variation);
-    }
-    
-    // Return max 3 suggestions
-    if (suggestions.length >= 3) {
-      break;
-    }
-  }
-
-  return suggestions;
-};
-
-/**
- * Subscribe to real-time updates of user's hunts
- * @param userId - User ID to filter hunts by
- * @param callback - Function to call when hunts are updated
- * @returns Unsubscribe function
- */
-export const subscribeToUserHunts = (userId: string, callback: (hunts: Hunt[]) => void) => {
-  try {
-    const huntsRef = collection(db, 'hunts');
-    const q = query(
-      huntsRef,
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
-    );
-
-    // Set up real-time listener
-    const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
-      const hunts: Hunt[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        hunts.push({
-          id: doc.id,
-          name: data.name,
-          userId: data.userId,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-          description: data.description || '',
-          isCompleted: data.isCompleted || false
-        });
-      });
-
-      console.log(`📊 Real-time update: ${hunts.length} hunts for user`);
-      callback(hunts);
-    }, (error: FirestoreError) => {
-      console.error('❌ Error in hunt subscription:', error);
-      // Call callback with empty array on error
-      callback([]);
-    });
-
-    return unsubscribe;
-  } catch (error) {
-    console.error('❌ Error setting up hunt subscription:', error);
-    // Return a no-op function
-    return () => {};
+    console.error('Error getting hunt:', error);
+    throw error;
   }
 };

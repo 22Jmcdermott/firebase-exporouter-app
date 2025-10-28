@@ -1,39 +1,40 @@
-// Firestore Security Rules for Scavenger Hunt App
-// These rules should be applied in your Firebase Console under Firestore Database > Rules
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Hunt documents - users can only access their own hunts
+    // Rules for the hunts collection
     match /hunts/{huntId} {
-      allow read, write, delete: if request.auth != null 
-        && request.auth.uid == resource.data.userId;
+      // Allow users to read and write only their own hunts
+      allow read, write: if request.auth != null && 
+                            (resource == null || resource.data.userId == request.auth.uid);
       
-      // Allow creation if user is authenticated and userId matches auth.uid
-      allow create: if request.auth != null 
-        && request.auth.uid == request.resource.data.userId;
+      // Ensure the userId field matches the authenticated user when creating/updating
+      allow create: if request.auth != null && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      allow update: if request.auth != null && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.userId == request.auth.uid;
     }
     
-    // Deny all other document access
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // For testing purposes - you can remove this later
+    // This allows all authenticated users to read/write any document
+    // match /{document=**} {
+    //   allow read, write: if request.auth != null;
+    // }
   }
 }
 
 /*
-Security Rules Explanation:
+INSTRUCTIONS FOR FIREBASE CONSOLE:
 
-1. Users must be authenticated (request.auth != null)
-2. Users can only access hunts where userId matches their authentication UID
-3. Users can create new hunts only if they set userId to their own UID
-4. All other documents are denied access by default
-
-To apply these rules:
-1. Go to Firebase Console
-2. Select your project
+1. Go to Firebase Console (console.firebase.google.com)
+2. Select your project: fir-app-f0a08
 3. Navigate to Firestore Database
 4. Click on "Rules" tab
-5. Replace existing rules with the above content
-6. Click "Publish"
+5. Replace the existing rules with the content above
+6. Click "Publish" to save the rules
+
+Alternative for testing (simpler but less secure):
+If you want to allow all authenticated users to read/write for now, uncomment the last rule above.
 */
