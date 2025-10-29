@@ -50,13 +50,21 @@ export default function ScavengerHuntScreen() {
     }
 
     console.log('🔄 [HuntScreen] Loading hunts for user:', user.uid);
+    console.log('🔄 [HuntScreen] Current hunts state before load:', hunts.length);
     setIsLoading(true);
     try {
       const userHunts = await getUserHunts(user.uid);
       console.log('📋 [HuntScreen] Received hunts from database:', userHunts);
-      console.log('📊 [HuntScreen] Number of hunts:', userHunts.length);
+      console.log('📊 [HuntScreen] Number of hunts received:', userHunts.length);
+      
       setHunts(userHunts);
-      console.log('✅ [HuntScreen] Hunts state updated successfully');
+      console.log('✅ [HuntScreen] Hunts state updated. New state should have:', userHunts.length, 'hunts');
+      
+      // Force a re-render check
+      setTimeout(() => {
+        console.log('🔍 [HuntScreen] State check after 100ms:', hunts.length);
+      }, 100);
+      
     } catch (error: any) {
       console.error('💥 [HuntScreen] Error loading hunts:', error);
       Alert.alert('Error', `Failed to load hunts: ${error?.message || 'Please try again.'}`);
