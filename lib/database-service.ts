@@ -19,6 +19,17 @@ import {
 } from 'firebase/firestore';
 import app from './firebase-config';
 
+export interface Location {
+  latitude: number;
+  longitude: number;
+  id?: string;
+  huntId: string;
+  name: string;
+  description?: string;
+  isVisible: boolean;
+  task?: string;
+}
+
 // Initialize Firestore
 const db = getFirestore(app);
 console.log('🔥 [Database Service] Firestore initialized:', db);
