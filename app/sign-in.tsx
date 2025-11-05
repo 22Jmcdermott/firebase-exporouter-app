@@ -28,7 +28,7 @@ export default function SignIn() {
     try {
       return await signIn(email, password);
     } catch (err) {
-      console.log("[handleLogin] ==>", err);
+
       return null;
     }
   };

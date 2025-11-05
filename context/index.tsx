@@ -137,7 +137,7 @@ export function SessionProvider(props: { children: React.ReactNode }) {
       const response = await login(email, password);
       return response?.user;
     } catch (error) {
-      console.error("[handleSignIn error] ==>", error);
+
       return undefined;
     }
   };
@@ -158,7 +158,7 @@ export function SessionProvider(props: { children: React.ReactNode }) {
       const response = await register(email, password, name);
       return response?.user;
     } catch (error) {
-      console.error("[handleSignUp error] ==>", error);
+
       return undefined;
     }
   };
@@ -169,7 +169,7 @@ export function SessionProvider(props: { children: React.ReactNode }) {
       await logout();
       setUser(null);
     } catch (error) {
-      console.error("[handleSignOut error] ==>", error);
+
     }
   };
 

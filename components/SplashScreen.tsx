@@ -62,15 +62,14 @@ const SplashScreen = () => {
     const maxDisplayTime = 5000;
     const startTime = Date.now();
     
-    console.log('🔄 [SplashScreen] Starting authentication check...');
-    console.log('🔄 [SplashScreen] Firebase auth object:', auth);
+
 
     /**
      * Fallback timeout to prevent infinite loading
      */
     const fallbackTimeout = setTimeout(() => {
       if (mounted && !navigationComplete) {
-        console.log('⚠️ [SplashScreen] Fallback timeout reached, navigating to sign-in');
+
         setAuthChecked(true);
         setIsChecking(false);
         navigationComplete = true;
@@ -84,11 +83,7 @@ const SplashScreen = () => {
      */
     const authListenerTimeout = setTimeout(() => {
       if (mounted && !navigationComplete) {
-        console.log('⚠️ [SplashScreen] Auth listener timeout - checking current user manually');
-        
-        // Manual check of current user
         const currentUser = auth.currentUser;
-        console.log('👤 [SplashScreen] Manual auth check - Current user:', currentUser);
         
         // Trigger the same logic as the auth state listener
         handleAuthStateChange(currentUser);
@@ -102,13 +97,13 @@ const SplashScreen = () => {
       if (!mounted || navigationComplete) return;
       
       try {
-        console.log('🔍 [SplashScreen] Processing auth state:', user ? 'User found' : 'No user');
+
         
         // Calculate remaining time to meet minimum display duration
         const elapsedTime = Date.now() - startTime;
         const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
         
-        console.log(`⏱️ [SplashScreen] Elapsed: ${elapsedTime}ms, Remaining: ${remainingTime}ms`);
+
         
         // Wait for minimum display time if needed
         if (remainingTime > 0) {
@@ -131,25 +126,20 @@ const SplashScreen = () => {
          */
         if (user) {
           // Valid session exists - user is authenticated
-          console.log('✅ [SplashScreen] Valid session found, navigating to main app');
-          console.log('👤 [SplashScreen] User:', {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName
-          });
+
           
           // Navigate to main app
           router.replace('/(app)/(drawer)/(tabs)');
         } else {
           // No valid session - user needs to authenticate
-          console.log('❌ [SplashScreen] No valid session, navigating to authentication');
+
           
           // Navigate to authentication screen
           router.replace('/sign-in');
         }
         
       } catch (error) {
-        console.error('💥 [SplashScreen] Error during auth check:', error);
+
         
         // On error, assume no valid session and navigate to auth
         if (mounted && !navigationComplete) {
@@ -170,7 +160,7 @@ const SplashScreen = () => {
      * - Returns null if no valid session
      */
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('� [SplashScreen] onAuthStateChanged fired:', user ? 'User found' : 'No user');
+
       
       // Clear the manual check timeout since the listener fired
       clearTimeout(authListenerTimeout);
@@ -185,7 +175,7 @@ const SplashScreen = () => {
       clearTimeout(fallbackTimeout);
       clearTimeout(authListenerTimeout);
       unsubscribe();
-      console.log('🧹 [SplashScreen] Cleanup completed');
+
     };
   }, []);
 

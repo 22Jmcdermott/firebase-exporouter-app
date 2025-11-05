@@ -2,16 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSession } from '@/context';
-import { getHuntById, Hunt, updateHuntName, deleteHunt, huntExistsForUser } from '@/lib/database-service';
+import { getHuntById, Hunt, updateHuntName, deleteHunt, huntExistsForUser, getHuntLocations } from '@/lib/database-service';
 
-/**
- * Hunt Detail Screen
- * Displays details of a specific hunt
- */
 export default function HuntDetailScreen() {
   const { huntId } = useLocalSearchParams();
   const { user } = useSession();
   const [hunt, setHunt] = useState<Hunt | null>(null);
+  const [locationCount, setLocationCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -30,17 +27,16 @@ export default function HuntDetailScreen() {
       setHunt(huntData);
       if (huntData) {
         setEditedName(huntData.name);
+        const locations = await getHuntLocations(huntId);
+        setLocationCount(locations.length);
       }
     } catch (error) {
-      console.error('Error loading hunt details:', error);
+      // Error loading hunt details
     } finally {
       setIsLoading(false);
     }
   };
 
-  /**
-   * Handle starting edit mode
-   */
   const handleStartEdit = () => {
     setIsEditing(true);
     setEditedName(hunt?.name || '');
@@ -99,7 +95,6 @@ export default function HuntDetailScreen() {
       setIsEditing(false);
       Alert.alert('Success', 'Hunt name updated successfully!');
     } catch (error: any) {
-      console.error('Error updating hunt name:', error);
       Alert.alert('Error', `Failed to update hunt name: ${error?.message || 'Please try again.'}`);
     } finally {
       setIsSaving(false);
@@ -110,37 +105,25 @@ export default function HuntDetailScreen() {
    * Handle deleting the hunt
    */
   const handleDeleteHunt = () => {
-    console.log('🗑️ Delete button pressed!');
-    console.log('Hunt:', hunt);
-    console.log('User:', user);
-    console.log('HuntId:', huntId);
-    
     // For web compatibility, use window.confirm as fallback
     if (typeof window !== 'undefined' && window.confirm) {
-      console.log('🌐 Using web confirm dialog');
       const confirmed = window.confirm('Are you sure you want to delete this hunt?');
       if (confirmed) {
-        console.log('✅ Delete confirmed via web dialog, calling confirmDeleteHunt');
         confirmDeleteHunt();
-      } else {
-        console.log('❌ Delete cancelled via web dialog');
       }
     } else {
-      console.log('📱 Using React Native Alert dialog');
       Alert.alert(
         'Delete Hunt',
         'Are you sure you want to delete this hunt?',
         [
           {
             text: 'Cancel',
-            style: 'cancel',
-            onPress: () => console.log('❌ Delete cancelled')
+            style: 'cancel'
           },
           {
             text: 'Delete',
             style: 'destructive',
             onPress: () => {
-              console.log('✅ Delete confirmed, calling confirmDeleteHunt');
               confirmDeleteHunt();
             }
           }
@@ -153,30 +136,26 @@ export default function HuntDetailScreen() {
    * Confirm and execute hunt deletion
    */
   const confirmDeleteHunt = async () => {
-    console.log('🚀 confirmDeleteHunt called');
-    console.log('Hunt exists:', !!hunt);
-    console.log('User exists:', !!user);
-    console.log('HuntId:', huntId, 'Type:', typeof huntId);
-    
     if (!hunt || !user || !huntId || typeof huntId !== 'string') {
-      console.log('❌ Validation failed - missing required data');
       return;
     }
 
-    console.log('✅ Validation passed, starting deletion process');
     setIsDeleting(true);
     try {
-      console.log('🔥 Calling deleteHunt function...');
       await deleteHunt(huntId, user.uid);
-      console.log('✅ deleteHunt completed successfully');
       // Navigate to hunts list after successful deletion
-      console.log('🔄 Navigating to hunts list...');
       router.push('/(app)/(drawer)/(tabs)/hunts');
     } catch (error: any) {
-      console.error('💥 Error deleting hunt:', error);
       Alert.alert('Error', `Failed to delete hunt: ${error?.message || 'Please try again.'}`);
       setIsDeleting(false);
     }
+  };
+
+  /**
+   * Navigate to location management screen
+   */
+  const handleManageLocations = () => {
+    router.push(`/location-list?huntId=${huntId}`);
   };
 
   if (isLoading) {
@@ -283,7 +262,7 @@ export default function HuntDetailScreen() {
             
             <Pressable
               onPress={() => {
-                console.log('🔴 DELETE BUTTON PHYSICALLY PRESSED!');
+
                 handleDeleteHunt();
               }}
               disabled={isDeleting}
@@ -302,6 +281,58 @@ export default function HuntDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* Location Summary Section */}
+      <View className="bg-blue-50 p-4 rounded-lg mb-4 border border-blue-200">
+        <Text className="text-lg font-semibold text-blue-900 mb-2">
+          Hunt Summary
+        </Text>
+        <View className="flex-row items-center mb-3">
+          <Text className="text-2xl mr-2">📍</Text>
+          <Text className="text-blue-800 font-medium">
+            {locationCount} Location{locationCount !== 1 ? 's' : ''} in this hunt
+          </Text>
+        </View>
+        <View className="flex-row items-center mb-3">
+          <Text className="text-2xl mr-2">{hunt.isVisible ? '👁️' : '🔒'}</Text>
+          <Text className="text-blue-800 font-medium">
+            {hunt.isVisible ? 'Public Hunt' : 'Private Hunt'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Location Management Section */}
+      <View className="bg-white p-4 rounded-lg mb-4 border border-gray-200 shadow-sm">
+        <View className="flex-row items-center justify-between mb-3">
+          <View>
+            <Text className="text-lg font-semibold text-gray-900 mb-1">
+              Location Management
+            </Text>
+            <Text className="text-gray-600 text-sm">
+              Add, edit, or remove checkpoints for this hunt
+            </Text>
+          </View>
+          <Text className="text-3xl">🗺️</Text>
+        </View>
+        
+        <Pressable
+          onPress={handleManageLocations}
+          style={{
+            backgroundColor: '#10B981',
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            borderRadius: 8,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center'
+          }}
+        >
+          <Text className="text-2xl mr-2">⚙️</Text>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+            Manage Locations
+          </Text>
+        </Pressable>
+      </View>
       
       <Text className="text-gray-600">
         Hunt ID: {hunt.id}
@@ -324,7 +355,7 @@ export default function HuntDetailScreen() {
             // Fallback
             return new Date(hunt.createdAt).toLocaleDateString();
           } catch (error) {
-            console.log('Date parsing error in detail:', error, hunt.createdAt);
+
             return 'Unknown date';
           }
         })()}

@@ -29,7 +29,7 @@ export default function SignUp() {
     try {
       return await signUp(email, password, name);
     } catch (err) {
-      console.log("[handleRegister] ==>", err);
+
       return null;
     }
   };

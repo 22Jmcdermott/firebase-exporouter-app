@@ -2,71 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, FlatList, Alert } from 'react-native';
 import { useSession } from '@/context';
 import { router } from 'expo-router';
-import { createHunt, getUserHunts, huntExistsForUser, Hunt, testFirestoreConnection } from '@/lib/database-service';
+import { createHunt, getUserHunts, huntExistsForUser, Hunt } from '@/lib/database-service';
 
-/**
- * ScavengerHuntScreen component for managing user hunts
- * Displays user's hunts and allows creation of new ones
- */
 export default function ScavengerHuntScreen() {
-  // ============================================================================
-  // State Management
-  // ============================================================================
-  
   const [hunts, setHunts] = useState<Hunt[]>([]);
   const [newHuntName, setNewHuntName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const { user } = useSession();
 
-  // ============================================================================
-  // Effects
-  // ============================================================================
-
-  /**
-   * Load user's hunts when component mounts or user changes
-   */
   useEffect(() => {
     if (user) {
-      // Test Firestore connection first
-      testFirestoreConnection().then(isConnected => {
-        console.log('🔥 [HuntScreen] Firestore connection test result:', isConnected);
-      });
       loadUserHunts();
     }
   }, [user]);
 
-  // ============================================================================
-  // Functions
-  // ============================================================================
-
-  /**
-   * Fetch all hunts for the current user
-   */
   const loadUserHunts = async () => {
-    if (!user) {
-      console.log('⚠️ [HuntScreen] No user found, skipping hunt load');
-      return;
-    }
+    if (!user) return;
 
-    console.log('🔄 [HuntScreen] Loading hunts for user:', user.uid);
-    console.log('🔄 [HuntScreen] Current hunts state before load:', hunts.length);
     setIsLoading(true);
     try {
       const userHunts = await getUserHunts(user.uid);
-      console.log('📋 [HuntScreen] Received hunts from database:', userHunts);
-      console.log('📊 [HuntScreen] Number of hunts received:', userHunts.length);
-      
       setHunts(userHunts);
-      console.log('✅ [HuntScreen] Hunts state updated. New state should have:', userHunts.length, 'hunts');
-      
-      // Force a re-render check
-      setTimeout(() => {
-        console.log('🔍 [HuntScreen] State check after 100ms:', hunts.length);
-      }, 100);
-      
     } catch (error: any) {
-      console.error('💥 [HuntScreen] Error loading hunts:', error);
       Alert.alert('Error', `Failed to load hunts: ${error?.message || 'Please try again.'}`);
     } finally {
       setIsLoading(false);
@@ -91,53 +49,31 @@ export default function ScavengerHuntScreen() {
       return;
     }
 
-    console.log('🎯 [HuntScreen] Starting hunt creation...', { huntName, userId: user.uid });
     setIsCreating(true);
     try {
-      // Check if hunt with same name already exists for this user
-      console.log('🔍 [HuntScreen] Checking if hunt exists...');
       const exists = await huntExistsForUser(huntName, user.uid);
-      console.log('🔍 [HuntScreen] Hunt exists check result:', exists);
       
       if (exists) {
-        Alert.alert(
-          'Hunt Exists', 
-          'A hunt with this name already exists. Please choose a unique name.'
-        );
+        Alert.alert('Error', 'A hunt with this name already exists');
         setIsCreating(false);
         return;
       }
 
-      // Create the hunt
-      console.log('🚀 [HuntScreen] Creating hunt...');
-      const huntId = await createHunt(huntName, user.uid);
-      console.log('✅ [HuntScreen] Hunt created with ID:', huntId);
-      
-      setNewHuntName(''); // Clear input
-      console.log('🔄 [HuntScreen] Reloading hunts list...');
-      await loadUserHunts(); // Reload the list
-      console.log('🎉 [HuntScreen] Hunt creation completed successfully!');
+      await createHunt(huntName, user.uid);
+      setNewHuntName('');
+      await loadUserHunts();
       Alert.alert('Success', 'Hunt created successfully!');
     } catch (error: any) {
-      console.error('💥 [HuntScreen] Error creating hunt:', error);
-      Alert.alert('Error', `Failed to create hunt: ${error?.message || 'Please try again.'}`);
+      Alert.alert('Error', 'Failed to create hunt');
     } finally {
       setIsCreating(false);
     }
   };
 
-  /**
-   * Navigate to hunt detail screen
-   */
   const handleHuntPress = (huntId: string) => {
     router.push(`/hunt-detail?huntId=${huntId}`);
   };
 
-
-
-  /**
-   * Render individual hunt item
-   */
   const renderHuntItem = ({ item }: { item: Hunt }) => (
     <Pressable
       onPress={() => handleHuntPress(item.id!)}
@@ -164,7 +100,6 @@ export default function ScavengerHuntScreen() {
             // Fallback
             return new Date(item.createdAt).toLocaleDateString();
           } catch (error) {
-            console.log('Date parsing error:', error, item.createdAt);
             return 'Unknown date';
           }
         })()}
