@@ -27,6 +27,7 @@ export default function ScavengerHunt() {
   const [creating, setCreating] = useState(false);
   const [selectedHunts, setSelectedHunts] = useState(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [newLocation, setNewLocation] = useState({
     locationName: '',
     explanation: '',
     latitude: '',

@@ -7,8 +7,10 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
-  Switch
+  Switch,
+  Platform
 } from 'react-native';
+import CrossPlatformCheckBox from '@/components/CrossPlatformCheckBox';
 import { useSession } from '@/context';
 import { 
   getUserHunts, 
@@ -27,6 +29,7 @@ export default function ScavengerHunt() {
   const [creating, setCreating] = useState(false);
   const [selectedHunts, setSelectedHunts] = useState(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [deletionMode, setDeletionMode] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -80,6 +83,11 @@ export default function ScavengerHunt() {
       newSelected.add(huntId);
     }
     setSelectedHunts(newSelected);
+  };
+
+  const toggleDeletionMode = () => {
+    setDeletionMode(!deletionMode);
+    setSelectedHunts(new Set()); // Clear selections when toggling mode
   };
 
   const handleDeleteSelected = () => {
@@ -144,18 +152,13 @@ export default function ScavengerHunt() {
         </Pressable>
         
         <View className="flex-row items-center">
-          <Pressable
-            onPress={() => toggleHuntSelection(item.id)}
-            className={`w-6 h-6 rounded border-2 mr-3 items-center justify-center ${
-              selectedHunts.has(item.id) 
-                ? 'bg-blue-500 border-blue-500' 
-                : 'border-gray-300'
-            }`}
-          >
-            {selectedHunts.has(item.id) && (
-              <Text className="text-white text-xs">✓</Text>
-            )}
-          </Pressable>
+          {deletionMode && (
+            <CrossPlatformCheckBox
+              disabled={false}
+              value={selectedHunts.has(item.id)}
+              onValueChange={() => toggleHuntSelection(item.id)}
+            />
+          )}
           
           <View className="items-center">
             <Switch
@@ -213,6 +216,23 @@ export default function ScavengerHunt() {
             {creating ? 'Creating...' : 'Create Hunt'}
           </Text>
         </Pressable>
+      </View>
+
+      <View className="bg-white p-4 rounded-lg shadow-sm mb-4">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-lg font-semibold text-gray-800">
+            Your Hunts ({hunts.length})
+          </Text>
+          
+          <View className="flex-row items-center">
+            <CrossPlatformCheckBox
+              disabled={false}
+              value={deletionMode}
+              onValueChange={toggleDeletionMode}
+            />
+            <Text className="ml-2 text-gray-600">Delete Mode</Text>
+          </View>
+        </View>
       </View>
 
       {selectedHunts.size > 0 && (

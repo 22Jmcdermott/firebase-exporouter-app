@@ -8,8 +8,8 @@ import {
   ScrollView,
   FlatList
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CrossPlatformPicker from '@/components/CrossPlatformPicker';
+import CrossPlatformDateTimePicker from '@/components/CrossPlatformDateTimePicker';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSession } from '@/context';
 import { 
@@ -314,13 +314,13 @@ export default function ConditionEdit() {
                 Condition Type
               </Text>
               <View className="border border-gray-300 rounded-lg">
-                <Picker
+                <CrossPlatformPicker
                   selectedValue={formData.type}
                   onValueChange={(value) => setFormData({...formData, type: value})}
                 >
-                  <Picker.Item label="Required Location" value="REQUIRED_LOCATION" />
-                  <Picker.Item label="Time Window" value="TIME_WINDOW" />
-                </Picker>
+                  <CrossPlatformPicker.Item label="Required Location" value="REQUIRED_LOCATION" />
+                  <CrossPlatformPicker.Item label="Time Window" value="TIME_WINDOW" />
+                </CrossPlatformPicker>
               </View>
             </View>
 
@@ -331,18 +331,18 @@ export default function ConditionEdit() {
                 </Text>
                 {availableLocations.length > 0 ? (
                   <View className="border border-gray-300 rounded-lg">
-                    <Picker
+                    <CrossPlatformPicker
                       selectedValue={formData.requiredLocationId}
                       onValueChange={(value) => setFormData({...formData, requiredLocationId: value})}
                     >
                       {availableLocations.map((loc) => (
-                        <Picker.Item 
+                        <CrossPlatformPicker.Item 
                           key={loc.locationId} 
                           label={loc.locationName} 
                           value={loc.locationId} 
                         />
                       ))}
-                    </Picker>
+                    </CrossPlatformPicker>
                   </View>
                 ) : (
                   <View className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
@@ -442,7 +442,7 @@ export default function ConditionEdit() {
 
       {/* Time Pickers */}
       {showStartTimePicker && (
-        <DateTimePicker
+        <CrossPlatformDateTimePicker
           value={formatTimeForPicker(formData.startTime)}
           mode="time"
           is24Hour={true}
@@ -457,7 +457,7 @@ export default function ConditionEdit() {
       )}
 
       {showEndTimePicker && (
-        <DateTimePicker
+        <CrossPlatformDateTimePicker
           value={formatTimeForPicker(formData.endTime)}
           mode="time"
           is24Hour={true}
