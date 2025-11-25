@@ -34,6 +34,13 @@ export const convertUTCTimeToLocal = (utcTimeString: string): string => {
   return `${localHours.toString().padStart(2, '0')}:${localMinutes.toString().padStart(2, '0')}`;
 };
 
+export const getCurrentLocalTime = (): string => {
+  const now = new Date();
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 export interface Hunt {
   id?: string;
   name: string;
@@ -60,6 +67,23 @@ export interface Condition {
   endTime?: string;
 }
 
+export interface PlayerHunt {
+  playerHuntId?: string;
+  userId: string;
+  huntId: string;
+  status: 'STARTED' | 'NOT_STARTED' | 'COMPLETED' | 'ABANDONED';
+  startTime?: any;
+  completionTime?: any;
+}
+
+export interface CheckIn {
+  checkInId?: string;
+  userId: string;
+  huntId: string;
+  locationId: string;
+  timestamp: any;
+}
+
 export const createHunt = async (huntName: string, userId: string): Promise<string> => {
   const docRef = await addDoc(collection(db, 'hunts'), {
     name: huntName,
@@ -74,6 +98,34 @@ export const getUserHunts = async (userId: string): Promise<Hunt[]> => {
   const q = query(
     collection(db, 'hunts'),
     where('userId', '==', userId)
+  );
+  
+  const querySnapshot = await getDocs(q);
+  const hunts: Hunt[] = [];
+
+  querySnapshot.forEach((doc) => {
+    const huntData = doc.data();
+    hunts.push({
+      id: doc.id,
+      name: huntData.name,
+      userId: huntData.userId,
+      createdAt: huntData.createdAt,
+      isVisible: huntData.isVisible
+    });
+  });
+
+  return hunts;
+};
+
+/**
+ * Get all visible hunts for discovery
+ * @returns {Promise<Hunt[]>}
+ */
+export const getVisibleHunts = async (): Promise<Hunt[]> => {
+  const q = query(
+    collection(db, 'hunts'),
+    where('isVisible', '==', true),
+    orderBy('createdAt', 'desc')
   );
   
   const querySnapshot = await getDocs(q);
@@ -591,6 +643,249 @@ export const deleteHunt = async (huntId: string, userId: string): Promise<void> 
     // Then delete the hunt document
     const huntRef = doc(db, "hunts", huntId);
     await deleteDoc(huntRef);
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// ============================================================================
+// PlayerHunts Collection Functions
+// ============================================================================
+
+/**
+ * Start a hunt for a player
+ * @param {string} userId - ID of the user starting the hunt
+ * @param {string} huntId - ID of the hunt to start
+ * @returns {Promise<string>} - ID of the created playerHunt document
+ */
+export const startPlayerHunt = async (userId: string, huntId: string): Promise<string> => {
+  try {
+    // Check if player already has this hunt started
+    const existingHunt = await getPlayerHunt(userId, huntId);
+    if (existingHunt) {
+      throw new Error('Hunt already started by this player');
+    }
+
+    const docRef = await addDoc(collection(db, 'playerHunts'), {
+      userId: userId,
+      huntId: huntId,
+      status: 'STARTED',
+      startTime: serverTimestamp(),
+      completionTime: null
+    });
+    return docRef.id;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get a specific player hunt
+ * @param {string} userId - ID of the user
+ * @param {string} huntId - ID of the hunt
+ * @returns {Promise<PlayerHunt | null>}
+ */
+export const getPlayerHunt = async (userId: string, huntId: string): Promise<PlayerHunt | null> => {
+  try {
+    const q = query(
+      collection(db, 'playerHunts'),
+      where('userId', '==', userId),
+      where('huntId', '==', huntId)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const doc = querySnapshot.docs[0];
+    return {
+      playerHuntId: doc.id,
+      ...doc.data()
+    } as PlayerHunt;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get all hunts for a specific player
+ * @param {string} userId - ID of the user
+ * @returns {Promise<PlayerHunt[]>}
+ */
+export const getPlayerHunts = async (userId: string): Promise<PlayerHunt[]> => {
+  try {
+    const q = query(
+      collection(db, 'playerHunts'),
+      where('userId', '==', userId),
+      orderBy('startTime', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      playerHuntId: doc.id,
+      ...doc.data()
+    })) as PlayerHunt[];
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Update player hunt status
+ * @param {string} playerHuntId - ID of the player hunt
+ * @param {string} status - New status
+ * @param {boolean} setCompletionTime - Whether to set completion time (for COMPLETED status)
+ * @returns {Promise<void>}
+ */
+export const updatePlayerHuntStatus = async (
+  playerHuntId: string, 
+  status: 'STARTED' | 'NOT_STARTED' | 'COMPLETED' | 'ABANDONED',
+  setCompletionTime: boolean = false
+): Promise<void> => {
+  try {
+    const updateData: any = { status };
+    
+    if (setCompletionTime && status === 'COMPLETED') {
+      updateData.completionTime = serverTimestamp();
+    }
+
+    const huntRef = doc(db, 'playerHunts', playerHuntId);
+    await updateDoc(huntRef, updateData);
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// ============================================================================
+// CheckIns Collection Functions
+// ============================================================================
+
+/**
+ * Create a check-in for a location completion
+ * @param {string} userId - ID of the user
+ * @param {string} huntId - ID of the hunt
+ * @param {string} locationId - ID of the completed location
+ * @returns {Promise<string>} - ID of the created checkIn document
+ */
+export const createCheckIn = async (userId: string, huntId: string, locationId: string): Promise<string> => {
+  try {
+    // Check if user already checked in to this location for this hunt
+    const existingCheckIn = await getCheckIn(userId, huntId, locationId);
+    if (existingCheckIn) {
+      throw new Error('Already checked in to this location');
+    }
+
+    const docRef = await addDoc(collection(db, 'checkIns'), {
+      userId: userId,
+      huntId: huntId,
+      locationId: locationId,
+      timestamp: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get a specific check-in
+ * @param {string} userId - ID of the user
+ * @param {string} huntId - ID of the hunt
+ * @param {string} locationId - ID of the location
+ * @returns {Promise<CheckIn | null>}
+ */
+export const getCheckIn = async (userId: string, huntId: string, locationId: string): Promise<CheckIn | null> => {
+  try {
+    const q = query(
+      collection(db, 'checkIns'),
+      where('userId', '==', userId),
+      where('huntId', '==', huntId),
+      where('locationId', '==', locationId)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const doc = querySnapshot.docs[0];
+    return {
+      checkInId: doc.id,
+      ...doc.data()
+    } as CheckIn;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get all check-ins for a user in a specific hunt
+ * @param {string} userId - ID of the user
+ * @param {string} huntId - ID of the hunt
+ * @returns {Promise<CheckIn[]>}
+ */
+export const getHuntCheckIns = async (userId: string, huntId: string): Promise<CheckIn[]> => {
+  try {
+    const q = query(
+      collection(db, 'checkIns'),
+      where('userId', '==', userId),
+      where('huntId', '==', huntId),
+      orderBy('timestamp', 'asc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      checkInId: doc.id,
+      ...doc.data()
+    })) as CheckIn[];
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get all check-ins for a user across all hunts
+ * @param {string} userId - ID of the user
+ * @returns {Promise<CheckIn[]>}
+ */
+export const getUserCheckIns = async (userId: string): Promise<CheckIn[]> => {
+  try {
+    const q = query(
+      collection(db, 'checkIns'),
+      where('userId', '==', userId),
+      orderBy('timestamp', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      checkInId: doc.id,
+      ...doc.data()
+    })) as CheckIn[];
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Calculate hunt progress for a player
+ * @param {string} userId - ID of the user
+ * @param {string} huntId - ID of the hunt
+ * @returns {Promise<{completed: number, total: number, percentage: number}>}
+ */
+export const getHuntProgress = async (userId: string, huntId: string): Promise<{completed: number, total: number, percentage: number}> => {
+  try {
+    // Get total number of locations in the hunt
+    const locations = await getHuntLocations(huntId);
+    const total = locations.length;
+    
+    // Get number of completed locations (check-ins)
+    const checkIns = await getHuntCheckIns(userId, huntId);
+    const completed = checkIns.length;
+    
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+    
+    return { completed, total, percentage };
   } catch (error: any) {
     throw error;
   }

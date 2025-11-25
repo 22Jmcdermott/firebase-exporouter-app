@@ -3,10 +3,18 @@ import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSession } from '@/context';
 import { getHuntById, Hunt, updateHuntName, deleteHunt, huntExistsForUser, getHuntLocations } from '@/lib/database-service';
+import HuntDetailPlayer from './HuntDetailPlayer';
 
 export default function HuntDetailScreen() {
-  const { huntId } = useLocalSearchParams();
+  const { huntId, mode } = useLocalSearchParams();
   const { user } = useSession();
+  
+  // If mode is play or review, show player view
+  if (mode === 'play' || mode === 'review') {
+    return <HuntDetailPlayer />;
+  }
+  
+  // Otherwise show edit view (default behavior)
   const [hunt, setHunt] = useState<Hunt | null>(null);
   const [locationCount, setLocationCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);

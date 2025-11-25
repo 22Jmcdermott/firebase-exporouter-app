@@ -6,10 +6,14 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSession } from '@/context';
+import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
+import LocationMap from '@/components/LocationMap';
 import { 
   getLocationById,
   createLocation,
@@ -28,6 +32,8 @@ export default function LocationDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [viewMode, setViewMode] = useState(mode === 'play' || mode === 'review' ? 'map' : 'edit');
   
   const [isEditing, setIsEditing] = useState(mode === 'create');
   const [formData, setFormData] = useState({
@@ -40,8 +46,23 @@ export default function LocationDetail() {
   useEffect(() => {
     if (huntId && user) {
       loadLocationData();
+      if (mode === 'play' || mode === 'review') {
+        requestLocationPermission();
+      }
     }
   }, [huntId, locationId, user]);
+
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation(location.coords);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
 
   const loadLocationData = async () => {
     try {
@@ -107,6 +128,50 @@ export default function LocationDetail() {
     }
 
     return true;
+  };
+
+  // Helper functions for distance and navigation
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
+
+  const formatDistance = (distance) => {
+    if (distance < 1000) {
+      return `${Math.round(distance)}m`;
+    } else {
+      return `${(distance / 1000).toFixed(1)}km`;
+    }
+  };
+
+  const calculateBearing = (lat1, lon1, lat2, lon2) => {
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+    const θ = Math.atan2(y, x);
+    const bearing = (θ * 180 / Math.PI + 360) % 360;
+
+    return bearing;
+  };
+
+  const getDirectionText = (bearing) => {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const index = Math.round(bearing / 45) % 8;
+    return directions[index];
   };
 
   const handleSave = async () => {
@@ -423,6 +488,113 @@ export default function LocationDetail() {
                   <Text className="text-gray-900 font-medium">{conditions.length}</Text>
                 </View>
               </View>
+            </View>
+          )}
+
+          {/* Player Mode - Map View and Navigation */}
+          {(mode === 'play' || mode === 'review') && location && (
+            <View className="mt-4">
+              {/* View Mode Toggle */}
+              <View className="mb-4">
+                <View className="flex-row justify-center space-x-4">
+                  <Pressable
+                    className={`flex-row items-center px-4 py-2 rounded-lg ${
+                      viewMode === 'info' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                    onPress={() => setViewMode('info')}
+                  >
+                    <Ionicons
+                      name="information-circle"
+                      size={20}
+                      color={viewMode === 'info' ? 'white' : '#6B7280'}
+                    />
+                    <Text className={`ml-2 font-medium ${
+                      viewMode === 'info' ? 'text-white' : 'text-gray-600'
+                    }`}>
+                      Info
+                    </Text>
+                  </Pressable>
+                  
+                  <Pressable
+                    className={`flex-row items-center px-4 py-2 rounded-lg ${
+                      viewMode === 'map' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                    onPress={() => setViewMode('map')}
+                  >
+                    <Ionicons
+                      name="map"
+                      size={20}
+                      color={viewMode === 'map' ? 'white' : '#6B7280'}
+                    />
+                    <Text className={`ml-2 font-medium ${
+                      viewMode === 'map' ? 'text-white' : 'text-gray-600'
+                    }`}>
+                      Navigate
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {viewMode === 'info' ? (
+                /* Location Information */
+                <View className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                  <Text className="text-lg font-semibold text-gray-900 mb-4">
+                    📍 {location.locationName}
+                  </Text>
+                  
+                  <View className="space-y-3">
+                    <View className="py-2">
+                      <Text className="text-gray-600 font-medium mb-1">Description</Text>
+                      <Text className="text-gray-900">
+                        {location.explanation}
+                      </Text>
+                    </View>
+                    
+                    <View className="flex-row justify-between items-center py-2 border-t border-gray-100">
+                      <Text className="text-gray-600">Coordinates</Text>
+                      <Text className="text-gray-900 font-mono text-sm">
+                        {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                      </Text>
+                    </View>
+
+                    {userLocation && (
+                      <View className="py-2 border-t border-gray-100">
+                        <Text className="text-gray-600 font-medium mb-1">Distance & Direction</Text>
+                        <Text className="text-gray-900">
+                          {(() => {
+                            const distance = calculateDistance(
+                              userLocation.latitude,
+                              userLocation.longitude,
+                              location.latitude,
+                              location.longitude
+                            );
+                            const bearing = calculateBearing(
+                              userLocation.latitude,
+                              userLocation.longitude,
+                              location.latitude,
+                              location.longitude
+                            );
+                            const direction = getDirectionText(bearing);
+                            return `${formatDistance(distance)} ${direction}`;
+                          })()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ) : (
+                /* Map View with Navigation */
+                <View className="h-96 rounded-lg overflow-hidden border border-gray-200">
+                  <LocationMap
+                    locations={[location]}
+                    availableLocationIds={[location.locationId]}
+                    completedLocationIds={[]}
+                    userLocation={userLocation}
+                    onLocationPress={() => {}}
+                    showUserLocation={true}
+                  />
+                </View>
+              )}
             </View>
           )}
         </View>

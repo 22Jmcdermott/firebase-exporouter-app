@@ -8,6 +8,9 @@ service cloud.firestore {
       allow read, write: if request.auth != null && 
                             (resource == null || resource.data.userId == request.auth.uid);
       
+      // Allow all authenticated users to read hunts marked as visible
+      allow read: if request.auth != null && resource.data.isVisible == true;
+      
       // Ensure the userId field matches the authenticated user when creating/updating
       allow create: if request.auth != null && 
                        request.resource.data.userId == request.auth.uid;
@@ -15,6 +18,47 @@ service cloud.firestore {
       allow update: if request.auth != null && 
                        resource.data.userId == request.auth.uid &&
                        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Rules for the locations collection
+    match /locations/{locationId} {
+      // Allow users to read/write locations for hunts they own
+      allow read, write: if request.auth != null && 
+                            resource.data.userId == request.auth.uid;
+      
+      // Allow users to read locations for visible hunts
+      allow read: if request.auth != null && 
+                     exists(/databases/$(database)/documents/hunts/$(resource.data.huntId)) &&
+                     get(/databases/$(database)/documents/hunts/$(resource.data.huntId)).data.isVisible == true;
+    }
+    
+    // Rules for the conditions collection
+    match /conditions/{conditionId} {
+      // Allow users to read/write conditions for locations they own
+      allow read, write: if request.auth != null;
+      // Note: More specific rules would require checking location ownership through hunt ownership
+    }
+    
+    // Rules for the playerHunts collection
+    match /playerHunts/{playerHuntId} {
+      // Users can only read/write their own player hunts
+      allow read, write: if request.auth != null && 
+                            request.auth.uid == resource.data.userId;
+      
+      // Allow creation if userId matches authenticated user
+      allow create: if request.auth != null && 
+                       request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Rules for the checkIns collection
+    match /checkIns/{checkInId} {
+      // Users can only read/write their own check-ins
+      allow read, write: if request.auth != null && 
+                            request.auth.uid == resource.data.userId;
+      
+      // Allow creation if userId matches authenticated user
+      allow create: if request.auth != null && 
+                       request.auth.uid == request.resource.data.userId;
     }
     
     // For testing purposes - you can remove this later
