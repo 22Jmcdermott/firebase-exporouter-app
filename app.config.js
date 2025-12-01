@@ -53,26 +53,28 @@ export default {
       ],
       [
         'expo-quick-actions',
-        [
-          {
-            id: 'active-hunts',
-            title: 'Active Hunts',
-            subtitle: 'View ongoing hunts',
-            icon: 'symbol:map',
-          },
-          {
-            id: 'completed-hunts',
-            title: 'Completed Hunts',
-            subtitle: 'View completed hunts',
-            icon: 'symbol:checkmark',
-          },
-          {
-            id: 'profile',
-            title: 'Profile',
-            subtitle: 'View your profile',
-            icon: 'symbol:person',
-          },
-        ],
+        {
+          iosActions: [
+            {
+              id: 'active-hunts',
+              title: 'Active Hunts',
+              subtitle: 'View ongoing hunts',
+              icon: 'symbol:map',
+            },
+            {
+              id: 'completed-hunts',
+              title: 'Completed Hunts',
+              subtitle: 'View completed hunts',
+              icon: 'symbol:checkmark',
+            },
+            {
+              id: 'profile',
+              title: 'Profile',
+              subtitle: 'View your profile',
+              icon: 'symbol:person',
+            },
+          ],
+        },
       ],
       [
         'expo-splash-screen',
