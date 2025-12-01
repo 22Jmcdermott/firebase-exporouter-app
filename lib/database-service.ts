@@ -16,6 +16,13 @@ import app from './firebase-config';
 
 const db = getFirestore(app);
 
+export interface User {
+  userId: string;
+  email: string;
+  displayName?: string;
+  profileImageUrl?: string;
+}
+
 export const convertLocalTimeToUTC = (localTimeString: string): string => {
   const [hours, minutes] = localTimeString.split(':').map(Number);
   const localDate = new Date();
@@ -82,6 +89,13 @@ export interface CheckIn {
   huntId: string;
   locationId: string;
   timestamp: any;
+}
+
+export interface ScoreboardEntry {
+  userId: string;
+  displayName: string;
+  profileImageUrl?: string;
+  completedCount: number;
 }
 
 export const createHunt = async (huntName: string, userId: string): Promise<string> => {
@@ -876,6 +890,66 @@ export const getUserCheckIns = async (userId: string): Promise<CheckIn[]> => {
       checkInId: doc.id,
       ...doc.data()
     })) as CheckIn[];
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// User Profile Functions
+export const updateUserProfile = async (userId: string, displayName?: string, profileImageUrl?: string): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const updateData: any = {};
+    if (displayName) updateData.displayName = displayName;
+    if (profileImageUrl) updateData.profileImageUrl = profileImageUrl;
+    await updateDoc(userRef, updateData);
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+export const getUserProfile = async (userId: string): Promise<User | null> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      return { userId: docSnap.id, ...docSnap.data() } as User;
+    }
+    return null;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// Scoreboard Functions
+export const getScoreboard = async (): Promise<ScoreboardEntry[]> => {
+  try {
+    const playerHuntsQuery = query(
+      collection(db, 'playerHunts'),
+      where('status', '==', 'COMPLETED')
+    );
+    const snapshot = await getDocs(playerHuntsQuery);
+    
+    const userCounts: { [key: string]: number } = {};
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const userId = data.userId;
+      userCounts[userId] = (userCounts[userId] || 0) + 1;
+    });
+    
+    const scoreboard: ScoreboardEntry[] = [];
+    for (const userId in userCounts) {
+      const userProfile = await getUserProfile(userId);
+      scoreboard.push({
+        userId,
+        displayName: userProfile?.displayName || 'Unknown User',
+        profileImageUrl: userProfile?.profileImageUrl,
+        completedCount: userCounts[userId]
+      });
+    }
+    
+    scoreboard.sort((a, b) => b.completedCount - a.completedCount);
+    return scoreboard;
   } catch (error: any) {
     throw error;
   }

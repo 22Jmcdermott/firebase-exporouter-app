@@ -1,4 +1,5 @@
 import { SessionProvider } from "@/context";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { Slot } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from 'expo-font';
@@ -44,9 +45,11 @@ export default function RootLayout() {
   
   return (
     <SessionProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Slot />
-      </GestureHandlerRootView>
+      <ThemeProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Slot />
+        </GestureHandlerRootView>
+      </ThemeProvider>
     </SessionProvider>
   );
 }

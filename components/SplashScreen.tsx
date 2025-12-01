@@ -18,32 +18,13 @@ const SplashScreen = () => {
   const [isChecking, setIsChecking] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const router = useRouter();
-  
-  // Simplified animation values
-  const contentOpacity = useSharedValue(0);
-
-  // ============================================================================
-  // Animation Styles
-  // ============================================================================
-  
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-  }));
 
   // ============================================================================
   // Effects & Authentication Logic
   // ============================================================================
   
   /**
-   * STEP 1: Initialize simple fade-in animation when component mounts
-   */
-  useEffect(() => {
-    // Simple fade-in animation for all content
-    contentOpacity.value = withSpring(1, { duration: 1000 });
-  }, []);
-
-  /**
-   * STEP 2: Check authentication status using Firebase Auth State Listener
+   * STEP 1: Check authentication status using Firebase Auth State Listener
    * This is the core logic that determines user session validity
    */
   useEffect(() => {
@@ -182,12 +163,12 @@ const SplashScreen = () => {
       flex: 1, 
       backgroundColor: 'white' 
     }}>
-      <Animated.View style={[contentAnimatedStyle, { 
+      <View style={{ 
         flex: 1, 
         justifyContent: 'center', 
         alignItems: 'center',
         paddingHorizontal: 32 
-      }]}>
+      }}>
         
         {/* Loading Indicator During Auth Check */}
         <View style={{ alignItems: 'center' }}>
@@ -221,7 +202,7 @@ const SplashScreen = () => {
             </Text>
           </View>
         )}
-      </Animated.View>
+      </View>
     </View>
   );
 };
