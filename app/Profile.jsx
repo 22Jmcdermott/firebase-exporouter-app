@@ -5,6 +5,7 @@ import { useAuth } from '@/context';
 import { useTheme } from '@/context/ThemeContext';
 import { getUserProfile, updateUserProfile, getPlayerHunts } from '@/lib/database-service';
 import { Ionicons } from '@expo/vector-icons';
+import * as Application from 'expo-application';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -13,6 +14,13 @@ const Profile = () => {
   const [profile, setProfile] = useState(null);
   const [completedHunts, setCompletedHunts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIcon, setSelectedIcon] = useState('default');
+
+  const appIcons = [
+    { id: 'default', name: 'Default', icon: 'apps', color: '#007AFF' },
+    { id: 'dark', name: 'Dark', icon: 'moon', color: '#333' },
+    { id: 'minimal', name: 'Minimal', icon: 'square-outline', color: '#888' },
+  ];
 
   useEffect(() => {
     if (user) {
@@ -32,6 +40,15 @@ const Profile = () => {
       console.log('Error loading profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const changeAppIcon = async (iconId) => {
+    try {
+      setSelectedIcon(iconId);
+      Alert.alert('App Icon', `Icon changed to ${iconId}`);
+    } catch (error) {
+      Alert.alert('Error', 'Could not change app icon');
     }
   };
 
@@ -115,6 +132,48 @@ const Profile = () => {
             value={theme === 'dark'}
             onValueChange={toggleTheme}
           />
+        </View>
+
+        {/* App Icon Selector */}
+        <View style={{ 
+          backgroundColor: cardBg, 
+          padding: 20, 
+          borderRadius: 12, 
+          marginBottom: 20 
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold', color: textColor, marginBottom: 15 }}>
+            App Icon
+          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+            {appIcons.map((icon) => (
+              <TouchableOpacity
+                key={icon.id}
+                onPress={() => changeAppIcon(icon.id)}
+                style={{
+                  alignItems: 'center',
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: selectedIcon === icon.id ? icon.color : cardBg,
+                  borderWidth: 2,
+                  borderColor: selectedIcon === icon.id ? icon.color : '#ccc',
+                  width: 90
+                }}
+              >
+                <Ionicons 
+                  name={icon.icon} 
+                  size={32} 
+                  color={selectedIcon === icon.id ? '#fff' : textColor} 
+                />
+                <Text style={{ 
+                  fontSize: 12, 
+                  marginTop: 8, 
+                  color: selectedIcon === icon.id ? '#fff' : textColor 
+                }}>
+                  {icon.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Scoreboard Button */}

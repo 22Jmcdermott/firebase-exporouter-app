@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import CustomSplashScreen from '@/components/SplashScreen';
+import { useQuickActions } from '@/lib/quick-actions';
 // Import your global CSS file
 import "../global.css";
 
@@ -32,6 +33,9 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  
+  // Setup quick actions
+  useQuickActions();
   
   useEffect(() => {
     if (loaded) {
