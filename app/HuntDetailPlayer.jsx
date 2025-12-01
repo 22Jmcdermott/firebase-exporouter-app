@@ -13,8 +13,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSession } from '@/context';
 import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons';
-import LocationMap from '@/components/LocationMap';
+import MapView, { Marker, Circle } from 'react-native-maps';
 import { 
   getHuntById,
   getPlayerHunt,
@@ -45,7 +44,8 @@ export default function HuntDetailPlayer() {
   const [isLoading, setIsLoading] = useState(true);
   const [isStarting, setIsStarting] = useState(false);
   const [checkingInLocationId, setCheckingInLocationId] = useState(null);
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
+  const [showMap, setShowMap] = useState(false);
+  const [selectedLocationForMap, setSelectedLocationForMap] = useState(null);
 
   useEffect(() => {
     if (huntId && user?.uid) {
@@ -207,6 +207,72 @@ export default function HuntDetailPlayer() {
     return R * c; // Distance in meters
   };
 
+  const calculateBearing = (lat1, lon1, lat2, lon2) => {
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δλ = (lon2 - lon1) * Math.PI/180;
+
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) -
+            Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    const θ = Math.atan2(y, x);
+    const bearing = (θ * 180/Math.PI + 360) % 360; // in degrees
+
+    return bearing;
+  };
+
+  const getDirectionText = (bearing) => {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const index = Math.round(bearing / 45) % 8;
+    return directions[index];
+  };
+
+  const getDirectionArrow = (bearing) => {
+    const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+    const index = Math.round(bearing / 45) % 8;
+    return arrows[index];
+  };
+
+  const formatDistance = (meters) => {
+    if (meters < 1000) {
+      return `${Math.round(meters)}m`;
+    }
+    return `${(meters / 1000).toFixed(1)}km`;
+  };
+
+  const getProximityGuidance = (location) => {
+    if (!userLocation) return null;
+    
+    const distance = calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      location.latitude,
+      location.longitude
+    );
+
+    const bearing = calculateBearing(
+      userLocation.latitude,
+      userLocation.longitude,
+      location.latitude,
+      location.longitude
+    );
+
+    const direction = getDirectionText(bearing);
+    const arrow = getDirectionArrow(bearing);
+
+    // Only show detailed guidance if within 500 meters
+    const showDetailedGuidance = distance <= 500;
+
+    return {
+      distance,
+      bearing,
+      direction,
+      arrow,
+      showDetailedGuidance,
+      formattedDistance: formatDistance(distance)
+    };
+  };
+
   const isUserNearLocation = (location) => {
     if (!userLocation) return false;
     
@@ -266,21 +332,14 @@ export default function HuntDetailPlayer() {
     return 'Locked 🔒';
   };
 
-  const getAvailableLocationIds = () => {
-    return locations
-      .filter(location => isLocationAvailable(location))
-      .map(location => location.locationId);
+  const handleShowMap = (location) => {
+    setSelectedLocationForMap(location);
+    setShowMap(true);
   };
 
-  const getCompletedLocationIds = () => {
-    return checkIns.map(checkIn => checkIn.locationId);
-  };
-
-  const handleMapLocationPress = (location) => {
-    if (playerHunt && isLocationAvailable(location)) {
-      // Navigate to location detail or show more info
-      router.push(`/location-detail?huntId=${huntId}&locationId=${location.locationId}&mode=${mode}`);
-    }
+  const handleCloseMap = () => {
+    setShowMap(false);
+    setSelectedLocationForMap(null);
   };
 
   const renderLocationItem = ({ item }) => {
@@ -288,6 +347,7 @@ export default function HuntDetailPlayer() {
     const available = isLocationAvailable(item);
     const nearLocation = isUserNearLocation(item);
     const canCheckIn = available && !completed && nearLocation && playerHunt;
+    const guidance = getProximityGuidance(item);
 
     return (
       <View className={`bg-white dark:bg-gray-800 p-4 mx-4 mb-3 rounded-lg shadow-md border-l-4 ${getLocationStatusColor(item)}`}>
@@ -301,6 +361,44 @@ export default function HuntDetailPlayer() {
             </Text>
           </View>
         </View>
+
+        {/* Proximity Guidance */}
+        {available && !completed && guidance && playerHunt && (
+          <View className="mt-2 mb-3">
+            {guidance.showDetailedGuidance ? (
+              <View className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                <View className="flex-row justify-between items-center mb-2">
+                  <View className="flex-row items-center">
+                    <Text className="text-3xl mr-2">{guidance.arrow}</Text>
+                    <View>
+                      <Text className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                        {guidance.direction} - {guidance.formattedDistance}
+                      </Text>
+                      <Text className="text-xs text-blue-600 dark:text-blue-300">
+                        Head {guidance.direction} to reach location
+                      </Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    className="bg-blue-500 px-3 py-2 rounded-lg"
+                    onPress={() => handleShowMap(item)}
+                  >
+                    <Text className="text-white text-xs font-medium">View Map</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View className="bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg">
+                <Text className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  📍 Distance: {guidance.formattedDistance}
+                </Text>
+                <Text className="text-xs text-gray-500 dark:text-gray-500 text-center mt-1">
+                  Get closer to see detailed directions
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {completed && mode === 'play' && (
           <View className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -421,76 +519,123 @@ export default function HuntDetailPlayer() {
         )}
       </View>
 
-      {/* View Mode Toggle */}
-      {playerHunt && locations.length > 0 && (
-        <View className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <View className="flex-row justify-center space-x-4">
-            <Pressable
-              className={`flex-row items-center px-4 py-2 rounded-lg ${
-                viewMode === 'list' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-              onPress={() => setViewMode('list')}
-            >
-              <Ionicons
-                name="list"
-                size={20}
-                color={viewMode === 'list' ? 'white' : '#6B7280'}
-              />
-              <Text className={`ml-2 font-medium ${
-                viewMode === 'list' ? 'text-white' : 'text-gray-600 dark:text-gray-400'
-              }`}>
-                List
-              </Text>
-            </Pressable>
-            
-            <Pressable
-              className={`flex-row items-center px-4 py-2 rounded-lg ${
-                viewMode === 'map' ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-              onPress={() => setViewMode('map')}
-            >
-              <Ionicons
-                name="map"
-                size={20}
-                color={viewMode === 'map' ? 'white' : '#6B7280'}
-              />
-              <Text className={`ml-2 font-medium ${
-                viewMode === 'map' ? 'text-white' : 'text-gray-600 dark:text-gray-400'
-              }`}>
-                Map
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      {/* Locations List */}
+      <View className="py-4">
+        <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-3 px-4">
+          Locations ({locations.length})
+        </Text>
+        
+        <FlatList
+          data={locations}
+          renderItem={renderLocationItem}
+          keyExtractor={(item) => item.locationId}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+        />
+      </View>
 
-      {/* Content based on view mode */}
-      {viewMode === 'list' ? (
-        // Locations List
-        <View className="py-4">
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-3 px-4">
-            Locations ({locations.length})
-          </Text>
-          
-          <FlatList
-            data={locations}
-            renderItem={renderLocationItem}
-            keyExtractor={(item) => item.locationId}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-          />
-        </View>
-      ) : (
-        // Map View
-        <View className="flex-1 min-h-96">
-          <LocationMap
-            locations={locations}
-            availableLocationIds={getAvailableLocationIds()}
-            completedLocationIds={getCompletedLocationIds()}
-            userLocation={userLocation}
-            onLocationPress={handleMapLocationPress}
-            showUserLocation={true}
-          />
+      {/* Map Modal */}
+      {showMap && selectedLocationForMap && userLocation && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white'
+        }}>
+          <View className="bg-white dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-lg font-bold text-gray-900 dark:text-white">
+                Navigate to Location
+              </Text>
+              <Pressable
+                className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-lg"
+                onPress={handleCloseMap}
+              >
+                <Text className="text-gray-900 dark:text-white font-medium">Close</Text>
+              </Pressable>
+            </View>
+            <Text className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {selectedLocationForMap.locationName}
+            </Text>
+          </View>
+
+          {userLocation ? (
+            <MapView
+              style={{ flex: 1 }}
+              initialRegion={{
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              showsCompass={true}
+            >
+              {/* User Location Marker */}
+              <Marker
+                coordinate={{
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                }}
+                title="Your Location"
+                pinColor="blue"
+              />
+
+            {/* Target Location Marker */}
+            <Marker
+              coordinate={{
+                latitude: selectedLocationForMap.latitude,
+                longitude: selectedLocationForMap.longitude,
+              }}
+              title={selectedLocationForMap.locationName}
+              description="Target Location"
+              pinColor="red"
+            />
+
+            {/* Circle showing check-in range */}
+            <Circle
+              center={{
+                latitude: selectedLocationForMap.latitude,
+                longitude: selectedLocationForMap.longitude,
+              }}
+              radius={11} // Approximately 4 decimal places (0.0001 degrees)
+              fillColor="rgba(59, 130, 246, 0.2)"
+              strokeColor="rgba(59, 130, 246, 0.5)"
+              strokeWidth={2}
+            />
+          </MapView>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f3f4f6' }}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text style={{ marginTop: 16, color: '#6b7280' }}>Loading map...</Text>
+            </View>
+          )}
+
+          {/* Distance Info Overlay */}
+          <View className="absolute bottom-4 left-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+            <View className="flex-row justify-between items-center">
+              <View>
+                <Text className="text-sm text-gray-600 dark:text-gray-400">Distance</Text>
+                <Text className="text-xl font-bold text-gray-900 dark:text-white">
+                  {getProximityGuidance(selectedLocationForMap)?.formattedDistance}
+                </Text>
+              </View>
+              <View className="items-center">
+                <Text className="text-sm text-gray-600 dark:text-gray-400">Direction</Text>
+                <View className="flex-row items-center">
+                  <Text className="text-2xl mr-2">
+                    {getProximityGuidance(selectedLocationForMap)?.arrow}
+                  </Text>
+                  <Text className="text-xl font-bold text-gray-900 dark:text-white">
+                    {getProximityGuidance(selectedLocationForMap)?.direction}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
       )}
     </ScrollView>

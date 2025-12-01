@@ -3,13 +3,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase-config';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring,
-  withDelay,
-  withSequence
-} from 'react-native-reanimated';
+
 
 /**
  * SplashScreen Component

@@ -124,8 +124,7 @@ export const getUserHunts = async (userId: string): Promise<Hunt[]> => {
 export const getVisibleHunts = async (): Promise<Hunt[]> => {
   const q = query(
     collection(db, 'hunts'),
-    where('isVisible', '==', true),
-    orderBy('createdAt', 'desc')
+    where('isVisible', '==', true)
   );
   
   const querySnapshot = await getDocs(q);
@@ -140,6 +139,13 @@ export const getVisibleHunts = async (): Promise<Hunt[]> => {
       createdAt: huntData.createdAt,
       isVisible: huntData.isVisible
     });
+  });
+
+  // Sort by createdAt in JavaScript instead
+  hunts.sort((a, b) => {
+    const aTime = a.createdAt?.seconds || 0;
+    const bTime = b.createdAt?.seconds || 0;
+    return bTime - aTime; // Newest first
   });
 
   return hunts;
@@ -717,15 +723,23 @@ export const getPlayerHunts = async (userId: string): Promise<PlayerHunt[]> => {
   try {
     const q = query(
       collection(db, 'playerHunts'),
-      where('userId', '==', userId),
-      orderBy('startTime', 'desc')
+      where('userId', '==', userId)
     );
     const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => ({
+    const playerHunts = querySnapshot.docs.map(doc => ({
       playerHuntId: doc.id,
       ...doc.data()
     })) as PlayerHunt[];
+
+    // Sort by startTime in JavaScript instead
+    playerHunts.sort((a, b) => {
+      const aTime = a.startTime?.seconds || 0;
+      const bTime = b.startTime?.seconds || 0;
+      return bTime - aTime; // Newest first
+    });
+
+    return playerHunts;
   } catch (error: any) {
     throw error;
   }

@@ -35,6 +35,33 @@ const DrawerLayout = () => {
             title: "Profile", // Header title when screen is open
           }}
         />
+        
+        {/* Hunt Discovery - Browse and start hunts */}
+        <Drawer.Screen
+          name="../../HuntDiscovery"
+          options={{
+            drawerLabel: "Browse Hunts",
+            title: "Hunt Discovery",
+          }}
+        />
+        
+        {/* Active Hunts - View started hunts */}
+        <Drawer.Screen
+          name="../../MyActiveHunts"
+          options={{
+            drawerLabel: "My Active Hunts",
+            title: "Active Hunts",
+          }}
+        />
+        
+        {/* Completed Hunts - View finished hunts */}
+        <Drawer.Screen
+          name="../../MyCompletedHunts"
+          options={{
+            drawerLabel: "Completed Hunts",
+            title: "Completed Hunts",
+          }}
+        />
       </Drawer>
   );
 };
