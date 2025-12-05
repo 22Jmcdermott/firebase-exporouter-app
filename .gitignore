@@ -11,6 +11,7 @@ npm-debug.*
 web-build/
 
 # Android
+/android
 android/app/build/
 android/app/.cxx/
 android/build/
