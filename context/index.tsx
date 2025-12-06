@@ -87,6 +87,12 @@ export function useSession(): AuthContextType {
   return value;
 }
 
+/**
+ * Alias for useSession for backward compatibility
+ * @returns {AuthContextType} Authentication context value
+ */
+export const useAuth = useSession;
+
 // ============================================================================
 // Provider Component
 // ============================================================================
