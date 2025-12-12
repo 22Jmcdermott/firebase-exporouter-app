@@ -13,7 +13,8 @@ import { useSession } from '@/context';
 import { 
   getVisibleHunts,
   getPlayerHunt,
-  getHuntProgress
+  getHuntProgress,
+  getHuntRatingStats
 } from '@/lib/database-service';
 
 export default function HuntDiscovery() {
@@ -23,6 +24,7 @@ export default function HuntDiscovery() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [huntProgress, setHuntProgress] = useState({});
+  const [huntRatings, setHuntRatings] = useState({});
 
   useEffect(() => {
     loadVisibleHunts();
@@ -44,6 +46,9 @@ export default function HuntDiscovery() {
       if (user?.uid) {
         await loadHuntProgress(visibleHunts);
       }
+      
+      // Load rating stats for all hunts
+      await loadHuntRatings(visibleHunts);
     } catch (error) {
       console.error('Error loading hunts:', error);
       Alert.alert('Error', 'Failed to load hunts');
@@ -73,6 +78,23 @@ export default function HuntDiscovery() {
     setHuntProgress(progressData);
   };
 
+  const loadHuntRatings = async (huntList) => {
+    const ratingsData = {};
+    
+    for (const hunt of huntList) {
+      try {
+        const stats = await getHuntRatingStats(hunt.id);
+        if (stats) {
+          ratingsData[hunt.id] = stats;
+        }
+      } catch (error) {
+        console.error(`Error loading ratings for hunt ${hunt.id}:`, error);
+      }
+    }
+    
+    setHuntRatings(ratingsData);
+  };
+
   const filterHunts = () => {
     if (!searchQuery.trim()) {
       setFilteredHunts(hunts);
@@ -90,15 +112,30 @@ export default function HuntDiscovery() {
 
   const renderHuntItem = ({ item }) => {
     const progress = huntProgress[item.id];
+    const rating = huntRatings[item.id];
     
     return (
       <Pressable
         className="bg-white dark:bg-gray-800 p-4 mx-4 mb-3 rounded-lg shadow-md"
         onPress={() => handleHuntPress(item)}
       >
-        <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          {item.name}
-        </Text>
+        <View className="flex-row justify-between items-start mb-2">
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white flex-1">
+            {item.name}
+          </Text>
+          
+          {rating && rating.reviewCount > 0 && (
+            <View className="flex-row items-center bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full ml-2">
+              <Text className="text-yellow-600 dark:text-yellow-400 text-xs mr-1">★</Text>
+              <Text className="text-xs font-medium text-yellow-700 dark:text-yellow-300">
+                {rating.averageRating}
+              </Text>
+              <Text className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                ({rating.reviewCount})
+              </Text>
+            </View>
+          )}
+        </View>
         
         {progress && (
           <View className="mt-2">

@@ -21,17 +21,28 @@ import {
   getHuntById
 } from '@/lib/database-service';
 
+/**
+ * LocationDetail Component - View and edit hunt location details
+ * Handles both viewing existing locations and creating new ones
+ * Supports location data editing and condition management
+ */
 export default function LocationDetail() {
+  // Route parameters and user session
   const { huntId, locationId, mode } = useLocalSearchParams();
   const { user } = useSession();
-  const [hunt, setHunt] = useState(null);
-  const [location, setLocation] = useState(null);
-  const [conditions, setConditions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   
-  const [isEditing, setIsEditing] = useState(mode === 'create');
+  // Data state
+  const [hunt, setHunt] = useState(null); // Parent hunt information
+  const [location, setLocation] = useState(null); // Current location data
+  const [conditions, setConditions] = useState([]); // Location conditions (time windows, dependencies)
+  
+  // UI state
+  const [loading, setLoading] = useState(true); // Loading state for initial data fetch
+  const [saving, setSaving] = useState(false); // Loading state during save operation
+  const [deleting, setDeleting] = useState(false); // Loading state during deletion
+  
+  // Form state
+  const [isEditing, setIsEditing] = useState(mode === 'create'); // Edit mode toggle
   const [formData, setFormData] = useState({
     locationName: '',
     explanation: '',

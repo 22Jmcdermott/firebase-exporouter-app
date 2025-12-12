@@ -1,3 +1,10 @@
+/**
+ * Database Service - Firestore database operations for the hunt app
+ * Provides All operations for hunts, locations, conditions, users, messages, and reviews
+ * Also has percentage of in progress hunts
+ * All timestamps are stored in UTC and converted to local time for display
+ */
+
 import { 
   getFirestore, 
   collection, 
@@ -10,12 +17,21 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
-  serverTimestamp
+  serverTimestamp,
+  limit,
+  onSnapshot,
+  Timestamp
 } from 'firebase/firestore';
 import app from './firebase-config';
 
+// Firestore database instance
 const db = getFirestore(app);
 
+// ========================================
+// TYPE DEFINITIONS
+// ========================================
+
+/** User profile information */
 export interface User {
   userId: string;
   email: string;
@@ -23,6 +39,12 @@ export interface User {
   profileImageUrl?: string;
 }
 
+/**
+ * Converts local time string to UTC time string
+ * Used when storing times in the database
+ * @param {string} localTimeString - Time in HH:MM format (local timezone)
+ * @returns {string} Time in HH:MM:SS format (UTC)
+ */
 export const convertLocalTimeToUTC = (localTimeString: string): string => {
   const [hours, minutes] = localTimeString.split(':').map(Number);
   const localDate = new Date();
@@ -32,6 +54,12 @@ export const convertLocalTimeToUTC = (localTimeString: string): string => {
   return `${utcHours.toString().padStart(2, '0')}:${utcMinutes.toString().padStart(2, '0')}:00`;
 };
 
+/**
+ * Converts UTC time string to local time string
+ * Used when displaying times from the database
+ * @param {string} utcTimeString - Time in HH:MM format (UTC)
+ * @returns {string} Time in HH:MM format (local timezone)
+ */
 export const convertUTCTimeToLocal = (utcTimeString: string): string => {
   const [hours, minutes] = utcTimeString.split(':').map(Number);
   const utcDate = new Date();
@@ -41,6 +69,11 @@ export const convertUTCTimeToLocal = (utcTimeString: string): string => {
   return `${localHours.toString().padStart(2, '0')}:${localMinutes.toString().padStart(2, '0')}`;
 };
 
+/**
+ * Gets current time in local timezone as HH:MM string
+ * Used for initializing time picker values
+ * @returns {string} Current time in HH:MM format
+ */
 export const getCurrentLocalTime = (): string => {
   const now = new Date();
   const hours = now.getHours().toString().padStart(2, '0');
@@ -48,41 +81,46 @@ export const getCurrentLocalTime = (): string => {
   return `${hours}:${minutes}`;
 };
 
+/** Scavenger hunt definition */
 export interface Hunt {
   id?: string;
   name: string;
-  userId: string;
+  userId: string;  // Creator of the hunt
   createdAt: any;
-  isVisible: boolean;
+  isVisible: boolean;  // Whether hunt is publicly discoverable
 }
 
+/** Physical location within a hunt */
 export interface Location {
   locationId?: string;
-  huntId: string;
+  huntId: string;  // Parent hunt
   locationName: string;
-  explanation: string;
+  explanation: string;  // Description/hint for the location
   latitude: number;
   longitude: number;
 }
 
+/** Condition that must be met to access a location */
 export interface Condition {
   conditionId?: string;
-  locationId: string;
-  type: 'REQUIRED_LOCATION' | 'TIME_WINDOW';
-  requiredLocationId?: string;
-  startTime?: string;
-  endTime?: string;
+  locationId: string;  // Location this condition applies to
+  type: 'REQUIRED_LOCATION' | 'TIME_WINDOW';  // Type of condition
+  requiredLocationId?: string;  // For REQUIRED_LOCATION: location that must be visited first
+  startTime?: string;  // For TIME_WINDOW: when location becomes available (UTC)
+  endTime?: string;    // For TIME_WINDOW: when location becomes unavailable (UTC)
 }
 
+/** Tracks a player's progress through a hunt */
 export interface PlayerHunt {
   playerHuntId?: string;
-  userId: string;
-  huntId: string;
+  userId: string;  // Player
+  huntId: string;  // Hunt being played
   status: 'STARTED' | 'NOT_STARTED' | 'COMPLETED' | 'ABANDONED';
   startTime?: any;
   completionTime?: any;
 }
 
+/** Records when a player visits a location */
 export interface CheckIn {
   checkInId?: string;
   userId: string;
@@ -91,13 +129,24 @@ export interface CheckIn {
   timestamp: any;
 }
 
+/** Leaderboard entry */
 export interface ScoreboardEntry {
   userId: string;
   displayName: string;
   profileImageUrl?: string;
-  completedCount: number;
+  completedCount: number;  // Number of hunts completed
 }
 
+// ========================================
+// HUNTS COLLECTION FUNCTIONS
+// ========================================
+
+/**
+ * Creates a new hunt for a user
+ * @param {string} huntName - Name of the hunt
+ * @param {string} userId - ID of the user creating the hunt
+ * @returns {Promise<string>} ID of the created hunt
+ */
 export const createHunt = async (huntName: string, userId: string): Promise<string> => {
   const docRef = await addDoc(collection(db, 'hunts'), {
     name: huntName,
@@ -108,6 +157,11 @@ export const createHunt = async (huntName: string, userId: string): Promise<stri
   return docRef.id;
 };
 
+/**
+ * Gets all hunts created by a specific user
+ * @param {string} userId - ID of the user
+ * @returns {Promise<Hunt[]>} Array of user's hunts
+ */
 export const getUserHunts = async (userId: string): Promise<Hunt[]> => {
   const q = query(
     collection(db, 'hunts'),
@@ -974,6 +1028,272 @@ export const getHuntProgress = async (userId: string, huntId: string): Promise<{
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     
     return { completed, total, percentage };
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// ============================================================================
+// Messaging Functions
+// ============================================================================
+
+export interface Message {
+  id?: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: any;
+  read: boolean;
+}
+
+export interface Conversation {
+  id?: string;
+  participants: string[];
+  participantNames: { [key: string]: string };
+  lastMessage: string;
+  lastMessageTime: any;
+  unreadCount: { [key: string]: number };
+}
+
+/**
+ * Send a message to another user
+ */
+export const sendMessage = async (
+  senderId: string,
+  senderName: string,
+  recipientId: string,
+  recipientName: string,
+  text: string
+): Promise<void> => {
+  try {
+    // Create or get conversation ID (sorted user IDs to ensure consistency)
+    const conversationId = [senderId, recipientId].sort().join('_');
+    
+    // Check if conversation exists
+    const conversationsRef = collection(db, 'conversations');
+    const convQuery = query(conversationsRef, where('__name__', '==', conversationId));
+    const convSnapshot = await getDocs(convQuery);
+    
+    // Create conversation if it doesn't exist
+    if (convSnapshot.empty) {
+      await addDoc(conversationsRef, {
+        participants: [senderId, recipientId],
+        participantNames: {
+          [senderId]: senderName,
+          [recipientId]: recipientName
+        },
+        lastMessage: text,
+        lastMessageTime: serverTimestamp(),
+        unreadCount: {
+          [senderId]: 0,
+          [recipientId]: 1
+        }
+      });
+    } else {
+      // Update existing conversation
+      const convDoc = convSnapshot.docs[0];
+      await updateDoc(doc(db, 'conversations', convDoc.id), {
+        lastMessage: text,
+        lastMessageTime: serverTimestamp(),
+        [`unreadCount.${recipientId}`]: (convDoc.data().unreadCount?.[recipientId] || 0) + 1
+      });
+    }
+    
+    // Add message to messages subcollection
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    await addDoc(messagesRef, {
+      conversationId,
+      senderId,
+      senderName,
+      text,
+      timestamp: serverTimestamp(),
+      read: false
+    });
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get all conversations for a user
+ */
+export const getUserConversations = async (userId: string): Promise<Conversation[]> => {
+  try {
+    const conversationsRef = collection(db, 'conversations');
+    const q = query(
+      conversationsRef,
+      where('participants', 'array-contains', userId),
+      orderBy('lastMessageTime', 'desc')
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Conversation));
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get messages for a conversation
+ */
+export const getConversationMessages = async (conversationId: string): Promise<Message[]> => {
+  try {
+    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Message));
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Mark messages as read
+ */
+export const markMessagesAsRead = async (conversationId: string, userId: string): Promise<void> => {
+  try {
+    const convRef = doc(db, 'conversations', conversationId);
+    await updateDoc(convRef, {
+      [`unreadCount.${userId}`]: 0
+    });
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get all users (for selecting who to message)
+ */
+export const getAllUsers = async (): Promise<User[]> => {
+  try {
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
+    return snapshot.docs.map(doc => ({
+      userId: doc.id,
+      ...doc.data()
+    } as User));
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// ============================================================================
+// Review and Rating Functions
+// ============================================================================
+
+export interface Review {
+  reviewId?: string;
+  huntId: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  timestamp: any;
+}
+
+/**
+ * Submit or update a review for a hunt
+ */
+export const submitReview = async (
+  huntId: string,
+  userId: string,
+  rating: number,
+  comment: string
+): Promise<void> => {
+  try {
+    const reviewsRef = collection(db, 'reviews');
+    const q = query(reviewsRef, where('huntId', '==', huntId), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      // Create new review
+      await addDoc(reviewsRef, {
+        huntId,
+        userId,
+        rating,
+        comment,
+        timestamp: serverTimestamp()
+      });
+    } else {
+      // Update existing review
+      const reviewDoc = snapshot.docs[0];
+      await updateDoc(doc(db, 'reviews', reviewDoc.id), {
+        rating,
+        comment,
+        timestamp: serverTimestamp()
+      });
+    }
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get user's review for a specific hunt
+ */
+export const getUserReviewForHunt = async (huntId: string, userId: string): Promise<Review | null> => {
+  try {
+    const reviewsRef = collection(db, 'reviews');
+    const q = query(reviewsRef, where('huntId', '==', huntId), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const reviewDoc = snapshot.docs[0];
+    return {
+      reviewId: reviewDoc.id,
+      ...reviewDoc.data()
+    } as Review;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get all reviews for a hunt
+ */
+export const getReviewsForHunt = async (huntId: string): Promise<Review[]> => {
+  try {
+    const reviewsRef = collection(db, 'reviews');
+    const q = query(reviewsRef, where('huntId', '==', huntId), orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({
+      reviewId: doc.id,
+      ...doc.data()
+    } as Review));
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+/**
+ * Get average rating and review count for a hunt
+ */
+export const getHuntRatingStats = async (huntId: string): Promise<{ avgRating: number; reviewCount: number }> => {
+  try {
+    const reviews = await getReviewsForHunt(huntId);
+    
+    if (reviews.length === 0) {
+      return { avgRating: 0, reviewCount: 0 };
+    }
+
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const avgRating = totalRating / reviews.length;
+
+    return {
+      avgRating: Math.round(avgRating * 10) / 10, // Round to 1 decimal place
+      reviewCount: reviews.length
+    };
   } catch (error: any) {
     throw error;
   }

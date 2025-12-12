@@ -6,21 +6,25 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  RefreshControl
+  RefreshControl,
+  TouchableOpacity
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSession } from '@/context';
 import { 
   getPlayerHunts,
   getHuntById,
-  getHuntProgress
+  getHuntProgress,
+  getUserReviewForHunt
 } from '@/lib/database-service';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function MyCompletedHunts() {
   const { user } = useSession();
   const [completedHunts, setCompletedHunts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState({});
 
   useEffect(() => {
     if (user?.uid) {
@@ -68,12 +72,28 @@ export default function MyCompletedHunts() {
       });
       
       setCompletedHunts(huntsWithDetails);
+      
+      // Load review status for each hunt
+      await loadReviewStatus(huntsWithDetails);
     } catch (error) {
       console.error('Error loading completed hunts:', error);
       Alert.alert('Error', 'Failed to load completed hunts');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadReviewStatus = async (hunts) => {
+    const status = {};
+    for (const hunt of hunts) {
+      try {
+        const review = await getUserReviewForHunt(hunt.id, user.uid);
+        status[hunt.id] = review !== null;
+      } catch (error) {
+        status[hunt.id] = false;
+      }
+    }
+    setReviewStatus(status);
   };
 
   const onRefresh = async () => {
@@ -119,6 +139,7 @@ export default function MyCompletedHunts() {
 
   const renderCompletedHuntItem = ({ item, index }) => {
     const duration = calculateDuration(item.startTime, item.completionTime);
+    const hasReview = reviewStatus[item.id] || false;
     
     return (
       <Pressable
@@ -178,12 +199,27 @@ export default function MyCompletedHunts() {
             Tap to review
           </Text>
           
-          <View className="flex-row items-center">
-            <View className="w-2 h-2 bg-green-500 rounded-full mr-1" />
-            <Text className="text-xs text-green-600 dark:text-green-400 font-medium">
-              Achievement Unlocked
+          <TouchableOpacity
+            className={`flex-row items-center px-4 py-2 rounded-lg ${
+              hasReview ? 'bg-blue-100 dark:bg-blue-900' : 'bg-yellow-100 dark:bg-yellow-900'
+            }`}
+            onPress={(e) => {
+              e.stopPropagation();
+              router.push(`/ReviewForm?huntId=${item.id}`);
+            }}
+          >
+            <Ionicons
+              name={hasReview ? 'checkmark-circle' : 'star-outline'}
+              size={16}
+              color={hasReview ? '#3B82F6' : '#EAB308'}
+              style={{ marginRight: 4 }}
+            />
+            <Text className={`text-xs font-medium ${
+              hasReview ? 'text-blue-700 dark:text-blue-300' : 'text-yellow-700 dark:text-yellow-300'
+            }`}>
+              {hasReview ? 'Edit Review' : 'Add Review'}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </Pressable>
     );

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSession } from '@/context';
-import { getHuntById, Hunt, updateHuntName, deleteHunt, huntExistsForUser, getHuntLocations } from '@/lib/database-service';
+import { getHuntById, Hunt, updateHuntName, updateHuntVisibility, deleteHunt, huntExistsForUser, getHuntLocations } from '@/lib/database-service';
 import HuntDetailPlayer from './HuntDetailPlayer';
 
 export default function HuntDetailScreen() {
@@ -22,6 +22,7 @@ export default function HuntDetailScreen() {
   const [editedName, setEditedName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
 
   useEffect(() => {
     loadHuntDetails();
@@ -162,6 +163,26 @@ export default function HuntDetailScreen() {
   /**
    * Navigate to location management screen
    */
+  const handleToggleVisibility = async () => {
+    if (!hunt || !user || !huntId || typeof huntId !== 'string') return;
+
+    setIsTogglingVisibility(true);
+    try {
+      const newVisibility = !hunt.isVisible;
+      await updateHuntVisibility(huntId, newVisibility, user.uid);
+      setHunt({ ...hunt, isVisible: newVisibility });
+      Alert.alert(
+        'Success',
+        `Hunt is now `,
+        [{ text: 'OK' }]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', `Failed to update visibility: `);
+    } finally {
+      setIsTogglingVisibility(false);
+    }
+  };
+
   const handleManageLocations = () => {
     router.push(`/location-list?huntId=${huntId}`);
   };
@@ -286,6 +307,22 @@ export default function HuntDetailScreen() {
                 {isDeleting ? 'Deleting...' : 'Delete Hunt'}
               </Text>
             </Pressable>
+
+            <Pressable
+              onPress={handleToggleVisibility}
+              disabled={isTogglingVisibility}
+              style={{
+                backgroundColor: isTogglingVisibility ? '#ccc' : (hunt.isVisible ? '#FF9500' : '#34C759'),
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+                borderRadius: 6,
+                alignItems: 'center'
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
+                {isTogglingVisibility ? 'Updating...' : (hunt.isVisible ? 'Make Private' : 'Make Public')}
+              </Text>
+            </Pressable>
           </View>
         </View>
       )}
@@ -371,3 +408,4 @@ export default function HuntDetailScreen() {
     </View>
   );
 }
+

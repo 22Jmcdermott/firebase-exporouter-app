@@ -7,15 +7,23 @@ import { getUserProfile, updateUserProfile, getPlayerHunts } from '@/lib/databas
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 
+/**
+ * Profile Component - User profile and settings screen
+ * Displays user information, stats, theme controls, and completed hunts
+ */
 const Profile = () => {
+  // Authentication and navigation
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
-  const [profile, setProfile] = useState(null);
-  const [completedHunts, setCompletedHunts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIcon, setSelectedIcon] = useState('default');
+  
+  // Profile state
+  const [profile, setProfile] = useState(null); // User profile data from database
+  const [completedHunts, setCompletedHunts] = useState([]); // List of hunts user has completed
+  const [loading, setLoading] = useState(true); // Loading state for data fetch
+  const [selectedIcon, setSelectedIcon] = useState('default'); // Currently selected app icon
 
+  // Available app icon options for customization
   const appIcons = [
     { id: 'default', name: 'Default', icon: 'apps', color: '#007AFF' },
     { id: 'dark', name: 'Dark', icon: 'moon', color: '#333' },
@@ -28,6 +36,10 @@ const Profile = () => {
     }
   }, [user]);
 
+  /**
+   * Loads user profile data and completed hunts from database
+   * Fetches user profile information and filters for completed hunts
+   */
   const loadProfile = async () => {
     try {
       const userProfile = await getUserProfile(user.uid);
@@ -43,6 +55,11 @@ const Profile = () => {
     }
   };
 
+  /**
+   * Changes the app icon (functionality placeholder)
+   * Updates selected icon state and shows confirmation
+   * @param {string} iconId - ID of the selected icon
+   */
   const changeAppIcon = async (iconId) => {
     try {
       setSelectedIcon(iconId);

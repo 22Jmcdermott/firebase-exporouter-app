@@ -22,7 +22,8 @@ export default function SignIn() {
 
   /**
    * Handles the sign-in process
-   * @returns {Promise<Models.User<Models.Preferences> | null>}
+   * Attempts to authenticate user with email and password
+   * @returns {Promise<Models.User<Models.Preferences> | null>} User object or null on failure
    */
   const handleLogin = async () => {
     try {
@@ -35,6 +36,7 @@ export default function SignIn() {
 
   /**
    * Handles the sign-in button press
+   * Authenticates user and navigates to app on success
    */
   const handleSignInPress = async () => {
     const resp = await handleLogin();
@@ -105,7 +107,7 @@ export default function SignIn() {
         <Link href="/sign-up" asChild>
           <Pressable className="ml-2">
             <Text className="text-blue-600 font-semibold">Sign Up</Text>
-          </Pressable>
+          </Pressable>a
         </Link>
       </View>
     </View>

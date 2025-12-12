@@ -242,7 +242,9 @@ export default function HuntDetailPlayer() {
 
   const getProximityGuidance = (location) => {
     if (!userLocation) return null;
-    
+    console.log('Target location:', location.latitude, location.longitude);
+    console.log('User location:', userLocation.latitude, userLocation.longitude);
+
     const distance = calculateDistance(
       userLocation.latitude,
       userLocation.longitude,
@@ -282,12 +284,8 @@ export default function HuntDetailPlayer() {
       location.latitude,
       location.longitude
     );
-    
-    // Check if coordinates match to 4 decimal places (approximately 11 meters)
-    const latMatch = Math.abs(userLocation.latitude - location.latitude) < 0.0001;
-    const lonMatch = Math.abs(userLocation.longitude - location.longitude) < 0.0001;
-    
-    return latMatch && lonMatch;
+    // Check if user is within 50 meters of the location
+    return distance <= 50;
   };
 
   const handleCheckIn = async (location) => {

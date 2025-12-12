@@ -19,14 +19,28 @@ import {
 } from '@/lib/database-service';
 import { router } from 'expo-router';
 
+/**
+ * ScavengerHunt Component - Complex hunt creation and management interface
+ * Allows users to create hunts with multiple locations and conditions
+ * Supports both simple and wizard-based hunt creation flows
+ */
 export default function ScavengerHunt() {
+  // User session
   const { user } = useSession();
-  const [hunts, setHunts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [newHuntName, setNewHuntName] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [selectedHunts, setSelectedHunts] = useState(new Set());
-  const [deleting, setDeleting] = useState(false);
+  
+  // Hunt list state
+  const [hunts, setHunts] = useState([]); // User's created hunts
+  const [loading, setLoading] = useState(true); // Loading state for initial fetch
+  
+  // Simple hunt creation state
+  const [newHuntName, setNewHuntName] = useState(''); // Name for new hunt
+  const [creating, setCreating] = useState(false); // Loading state during creation
+  
+  // Bulk deletion state
+  const [selectedHunts, setSelectedHunts] = useState(new Set()); // Selected hunts for deletion
+  const [deleting, setDeleting] = useState(false); // Loading state during deletion
+  
+  // Wizard-based location creation state
   const [newLocation, setNewLocation] = useState({
     locationName: '',
     explanation: '',
@@ -34,12 +48,16 @@ export default function ScavengerHunt() {
     longitude: '',
     conditions: []
   });
+  
+  // Current condition being configured in wizard
   const [currentCondition, setCurrentCondition] = useState({
     type: 'REQUIRED_LOCATION',
     requiredLocationId: '',
     startTime: getCurrentLocalTime(),
     endTime: getCurrentLocalTime()
   });
+  
+  // Time picker visibility state
   const [showTimePicker, setShowTimePicker] = useState({ start: false, end: false });
 
   useEffect(() => {
@@ -102,7 +120,7 @@ export default function ScavengerHunt() {
     setShowWizard(true);
   };
 
-  // Hunt Creation Wizard - Step Navigation
+  // Hunt Creation - Step Navigation
   const nextWizardStep = () => {
     if (wizardStep === 1) {
       if (!newHunt.name.trim()) {
@@ -183,7 +201,7 @@ export default function ScavengerHunt() {
     });
   };
 
-  // Complete Hunt Creation Wizard
+  // Complete Hunt Creation 
   const completeHuntCreation = async () => {
     try {
       setCreating(true);

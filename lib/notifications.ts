@@ -1,8 +1,19 @@
+/**
+ * Notifications Service - Handles local push notifications for hunt timing
+ * Schedules notifications based on hunt location time windows
+ * Notifies users 30 minutes before locations become available
+ */
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { getPlayerHunts, getLocationsForHunt, getConditionsForLocation, getHuntById } from './database-service';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
+import { getPlayerHunts, getHuntLocations, getLocationConditions, getHuntById } from './database-service';
 import { convertUTCTimeToLocal } from './database-service';
 
+/**
+ * Sets up notification permissions and channels
+ * Must be called before scheduling notifications
+ * @returns {Promise<boolean>} True if permissions granted
+ */
 export const setupNotifications = async () => {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
@@ -17,17 +28,24 @@ export const setupNotifications = async () => {
   return status === 'granted';
 };
 
+/**
+ * Schedules notifications for all active hunts for a user
+ * Finds all time-window conditions and schedules notifications 30 minutes before
+ * Converts UTC times to local timezone for accurate scheduling
+ * @param {string} userId - ID of the user to schedule notifications for
+ */
 export const scheduleHuntNotifications = async (userId: string) => {
   try {
     const playerHunts = await getPlayerHunts(userId);
     const activeHunts = playerHunts.filter(h => h.status === 'STARTED');
 
     for (const hunt of activeHunts) {
-      const locations = await getLocationsForHunt(hunt.huntId);
+      const locations = await getHuntLocations(hunt.huntId);
       
       for (const location of locations) {
-        const conditions = await getConditionsForLocation(location.locationId);
-        const timeConditions = conditions.filter(c => c.type === 'TIME_WINDOW');
+        if (!location.locationId) continue;
+        const conditions = await getLocationConditions(location.locationId);
+        const timeConditions = conditions.filter((c: any) => c.type === 'TIME_WINDOW');
 
         for (const condition of timeConditions) {
           if (condition.startTime) {
@@ -43,7 +61,6 @@ export const scheduleHuntNotifications = async (userId: string) => {
 
             if (notificationTime > now) {
               const huntData = await getHuntById(hunt.huntId);
-              
               await Notifications.scheduleNotificationAsync({
                 content: {
                   title: 'Hunt Available!',
@@ -51,6 +68,7 @@ export const scheduleHuntNotifications = async (userId: string) => {
                   data: { huntId: hunt.huntId, locationId: location.locationId },
                 },
                 trigger: {
+                  type: SchedulableTriggerInputTypes.DATE,
                   date: notificationTime,
                 },
               });
@@ -64,6 +82,10 @@ export const scheduleHuntNotifications = async (userId: string) => {
   }
 };
 
+/**
+ * Cancels all scheduled notifications for the app
+ * Useful when user signs out or disables notifications
+ */
 export const cancelAllNotifications = async () => {
   await Notifications.cancelAllScheduledNotificationsAsync();
 };
